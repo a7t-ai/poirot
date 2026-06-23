@@ -3,6 +3,8 @@ import SwiftUI
 struct MenuBarView: View {
     @Environment(AppState.self)
     private var appState
+    @Environment(UsageStore.self)
+    private var usageStore
     @Environment(\.provider)
     private var provider
     @Environment(\.openWindow)
@@ -13,6 +15,10 @@ struct MenuBarView: View {
     var body: some View {
         VStack(spacing: 0) {
             headerSection
+            if showUsageSection {
+                Divider().opacity(0.3)
+                usageSection
+            }
             Divider().opacity(0.3)
             searchField
             Divider().opacity(0.3)
@@ -25,6 +31,29 @@ struct MenuBarView: View {
         .onAppear {
             menuBarState.loadRecentSessions(from: appState.projects)
             menuBarState.loadStats()
+        }
+        // The menu bar never fetches usage itself (no Keychain read on open) — it passively
+        // mirrors whatever the dashboard has already loaded this session.
+    }
+
+    // MARK: - Usage
+
+    private var showUsageSection: Bool {
+        guard provider.supports(.usage), usageStore.isEnabled else { return false }
+        if case .loaded = usageStore.state { return true }
+        return false
+    }
+
+    @ViewBuilder
+    private var usageSection: some View {
+        if case let .loaded(usage) = usageStore.state {
+            VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xs) {
+                MenuBarUsageRow(label: "5h", window: usage.fiveHour)
+                MenuBarUsageRow(label: "7d", window: usage.sevenDay)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, PoirotTheme.Spacing.lg)
+            .padding(.vertical, PoirotTheme.Spacing.sm)
         }
     }
 
@@ -189,6 +218,51 @@ struct MenuBarView: View {
         appState.selectedProject = projectId
         appState.selectedSession = session
         appState.selectedNav = .sessions
+    }
+}
+
+// MARK: - Usage Row
+
+private struct MenuBarUsageRow: View {
+    let label: String
+    let window: UsageWindow
+    var now = Date()
+
+    var body: some View {
+        HStack(spacing: PoirotTheme.Spacing.sm) {
+            Text(label)
+                .font(PoirotTheme.Typography.microSemibold)
+                .foregroundStyle(PoirotTheme.Colors.textSecondary)
+                .frame(width: 18, alignment: .leading)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(PoirotTheme.Colors.bgElevated)
+                    Capsule()
+                        .fill(window.severity.tint)
+                        .frame(width: max(3, geo.size.width * window.fraction))
+                }
+            }
+            .frame(height: 5)
+
+            Text("\(window.percent)%")
+                .font(PoirotTheme.Typography.microMedium)
+                .foregroundStyle(PoirotTheme.Colors.textPrimary)
+                .frame(width: 32, alignment: .trailing)
+
+            Text(resetText)
+                .font(PoirotTheme.Typography.tiny)
+                .foregroundStyle(PoirotTheme.Colors.textTertiary)
+                .frame(width: 58, alignment: .trailing)
+        }
+    }
+
+    private var resetText: String {
+        guard let interval = window.timeUntilReset(now: now), interval >= 60 else {
+            return "resets now"
+        }
+        return UsageCountdown.format(interval)
     }
 }
 

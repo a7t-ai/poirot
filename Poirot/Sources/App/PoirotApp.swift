@@ -27,6 +27,8 @@ struct PoirotApp: App {
     private var appDelegate
     @State
     private var appState = AppState()
+    @State
+    private var usageStore = UsageStore()
     @AppStorage("showMenuBarIcon")
     private var showMenuBarIcon = true
     @Environment(\.openWindow)
@@ -35,6 +37,7 @@ struct PoirotApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .environment(appState)
+                .environment(usageStore)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
@@ -112,6 +115,7 @@ struct PoirotApp: App {
         MenuBarExtra("Poirot", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {
             MenuBarView()
                 .environment(appState)
+                .environment(usageStore)
         }
         .menuBarExtraStyle(.window)
     }

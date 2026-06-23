@@ -61,6 +61,7 @@ Named after **Hercule Poirot**, Agatha Christie's legendary detective. Because e
 </p>
 
 - **Session Analytics** — Token consumption, cost breakdowns, model distribution, and session trends
+- **Usage Limits** — Live subscription rate-limit gauges (5-hour and 7-day windows) with utilization and reset countdowns, in the dashboard and menu bar — no login, reusing the token Claude Code already stores
 - **Session History Browser** — Sessions grouped by project with timestamps, model info, and token counts
 - **Rich Conversation View** — Full timeline with markdown rendering, syntax highlighting, and collapsible tool blocks
 - **Tool Block Display** — Every tool invocation rendered with name, icon, file path, and result
@@ -90,6 +91,7 @@ Named after **Hercule Poirot**, Agatha Christie's legendary detective. Because e
 | Category | Feature | Description |
 |----------|---------|-------------|
 | **Analytics** | Session Analytics Dashboard | Token consumption, cost breakdowns, model distribution, and session trends |
+| | Usage Limits | Subscription 5-hour / 7-day rate-limit gauges with reset countdowns; reads Claude Code's existing OAuth token (no login), shown in the dashboard and menu bar |
 | **Sessions** | JSONL Transcript Parser | Parses `~/.claude/projects/` transcripts into structured models |
 | | Session History Browser | Sessions grouped by project with timestamps, model, token counts |
 | | Real-time File Watching | Auto-updates via GCD dispatch sources with 1s debounce |

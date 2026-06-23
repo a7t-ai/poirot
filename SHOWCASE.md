@@ -16,6 +16,15 @@ Track your Claude Code usage with visual dashboards. See token consumption, cost
 
 ---
 
+## Usage Limits
+See how much of your subscription you've used at a glance. Poirot surfaces the 5-hour and 7-day rate-limit windows as ring gauges with utilization percentages and reset countdowns — green, amber, and red as you approach the limit. The same gauges appear in the menu bar companion. There's no login: Poirot reuses the OAuth token Claude Code already stores on your Mac, so it stays true to "no login, no tracking."
+
+<p align="center">
+  <img src="assets/showcase/27-usage-limits.png" alt="Usage Limits" width="720" />
+</p>
+
+---
+
 ## Session History Browser
 Browse all your Claude Code sessions grouped by project in a dedicated sessions tab. Timestamps, token counts, model info — everything at a glance with search, sort, and agent session filtering.
 

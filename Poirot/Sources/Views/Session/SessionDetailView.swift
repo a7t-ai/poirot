@@ -177,6 +177,12 @@ struct SessionDetailView: View {
             )
             .font(PoirotTheme.Typography.caption)
             .foregroundStyle(PoirotTheme.Colors.textSecondary)
+
+            let context = ContextUsage.from(session.messages)
+            if !context.isEmpty {
+                ConversationContextCard(context: context)
+                    .padding(.top, PoirotTheme.Spacing.xs)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, PoirotTheme.Spacing.xxxl)

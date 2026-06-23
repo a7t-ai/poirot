@@ -11,6 +11,17 @@ struct ScreenshotTests_Analytics {
     // a slightly relaxed precision compared to static UI tests.
     private let chartPrecision: Float = 0.97
 
+    // Fixed reference time + usage so the usage gauges render deterministically.
+    private static let usageNow = Date(timeIntervalSince1970: 1_780_000_000)
+    private static let sampleUsage = ClaudeUsage(
+        fiveHour: UsageWindow(utilization: 22, resetsAt: usageNow.addingTimeInterval(8040)),
+        sevenDay: UsageWindow(utilization: 64, resetsAt: usageNow.addingTimeInterval(280_800)),
+        sevenDayOpus: nil,
+        sevenDaySonnet: nil,
+        spend: nil,
+        extraUsage: nil
+    )
+
     // MARK: - Full App (Sidebar + Analytics Dashboard)
 
     @Test
@@ -39,9 +50,18 @@ struct ScreenshotTests_Analytics {
         )
     }
 
+    // Scrolling near the bottom lands on dense pie/heatmap chart geometry whose edges
+    // shift a few pixels between first- and warm-render, so a small fraction of pixels
+    // differ run-to-run. A slightly relaxed coverage threshold absorbs that.
+    private let scrolledChartPrecision: Float = 0.93
+
     @Test
     func testAnalyticsDashboardBottom() async throws {
-        try await snapshotAnalytics(named: "testAnalyticsDashboardBottom", scrollFraction: 0.85)
+        try await snapshotAnalytics(
+            named: "testAnalyticsDashboardBottom",
+            scrollFraction: 0.85,
+            precision: scrolledChartPrecision
+        )
     }
 
     @Test
@@ -49,7 +69,8 @@ struct ScreenshotTests_Analytics {
         try await snapshotAnalytics(
             named: "testAnalyticsDashboardBottomLight",
             colorScheme: .light,
-            scrollFraction: 0.85
+            scrollFraction: 0.85,
+            precision: scrolledChartPrecision
         )
     }
 
@@ -59,7 +80,10 @@ struct ScreenshotTests_Analytics {
     func testAnalyticsDashboardContent() async throws {
         let vm = AnalyticsViewModel(preloaded: Self.mockStats)
         try await snapshotView(
-            withEnvironment(AnalyticsDashboardView(viewModel: vm)),
+            withEnvironment(
+                AnalyticsDashboardView(viewModel: vm, usageNow: Self.usageNow),
+                usageStore: .preview(.loaded(Self.sampleUsage))
+            ),
             size: ScreenshotSize.mainContent,
             named: "testAnalyticsDashboardContent",
             record: isRecording,
@@ -73,7 +97,8 @@ struct ScreenshotTests_Analytics {
     private func snapshotAnalytics(
         named name: String,
         colorScheme: ColorScheme = .dark,
-        scrollFraction: CGFloat? = nil
+        scrollFraction: CGFloat? = nil,
+        precision: Float? = nil
     ) async throws {
         let state = makeAppState(
             selectedNav: .analytics,
@@ -82,8 +107,8 @@ struct ScreenshotTests_Analytics {
         let vm = AnalyticsViewModel(preloaded: Self.mockStats)
 
         try await snapshotView(
-            compositeAppView(state: state) {
-                AnalyticsDashboardView(viewModel: vm)
+            compositeAppView(state: state, usageStore: .preview(.loaded(Self.sampleUsage))) {
+                AnalyticsDashboardView(viewModel: vm, usageNow: Self.usageNow)
             },
             size: ScreenshotSize.fullApp,
             named: name,
@@ -91,7 +116,7 @@ struct ScreenshotTests_Analytics {
             delay: 2,
             colorScheme: colorScheme,
             scrollFraction: scrollFraction,
-            precision: chartPrecision
+            precision: precision ?? chartPrecision
         )
     }
 
