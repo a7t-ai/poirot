@@ -462,6 +462,8 @@ nonisolated struct TranscriptParser {
         guard let usage else { return nil }
         let input = usage["input_tokens"] as? Int ?? 0
         let output = usage["output_tokens"] as? Int ?? 0
-        return TokenUsage(input: input, output: output)
+        let cacheRead = usage["cache_read_input_tokens"] as? Int ?? 0
+        let cacheCreation = usage["cache_creation_input_tokens"] as? Int ?? 0
+        return TokenUsage(input: input, output: output, cacheRead: cacheRead, cacheCreation: cacheCreation)
     }
 }

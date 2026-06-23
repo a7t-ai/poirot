@@ -42,4 +42,33 @@ struct TokenUsageTests {
         let usage = TokenUsage(input: 50000, output: 75000)
         #expect(usage.formatted == "125.0k")
     }
+
+    // MARK: - Context tokens & cache
+
+    @Test
+    func contextTokens_sumsPromptSide() {
+        let usage = TokenUsage(input: 2, output: 213, cacheRead: 437_861, cacheCreation: 2414)
+        // Prompt side only (output excluded): 2 + 437861 + 2414
+        #expect(usage.contextTokens == 440_277)
+    }
+
+    @Test
+    func cacheHitRate_fractionOfPromptFromCache() {
+        let usage = TokenUsage(input: 100, output: 50, cacheRead: 300, cacheCreation: 100)
+        // cacheRead / (input + cacheRead + cacheCreation) = 300 / 500
+        #expect(usage.cacheHitRate == 0.6)
+    }
+
+    @Test
+    func cacheHitRate_noPrompt_isZero() {
+        #expect(TokenUsage(input: 0, output: 0).cacheHitRate == 0)
+    }
+
+    @Test
+    func legacyInit_defaultsCacheToZero() {
+        let usage = TokenUsage(input: 100, output: 200)
+        #expect(usage.cacheRead == 0)
+        #expect(usage.cacheCreation == 0)
+        #expect(usage.contextTokens == 100)
+    }
 }

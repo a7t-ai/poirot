@@ -2,6 +2,10 @@ import Charts
 import SwiftUI
 
 struct AnalyticsDashboardView: View {
+    @Environment(UsageStore.self)
+    private var usageStore
+    @Environment(\.provider)
+    private var provider
     @State
     private var viewModel: AnalyticsViewModel
     @State
@@ -17,8 +21,13 @@ struct AnalyticsDashboardView: View {
     @State
     private var modelSelectedAngle: Int?
 
-    init(viewModel: AnalyticsViewModel = AnalyticsViewModel()) {
+    /// Reference time for usage reset countdowns. `nil` (the default) uses the live clock
+    /// at render time; tests inject a fixed value for deterministic snapshots.
+    private let usageNow: Date?
+
+    init(viewModel: AnalyticsViewModel = AnalyticsViewModel(), usageNow: Date? = nil) {
         _viewModel = State(initialValue: viewModel)
+        self.usageNow = usageNow
     }
 
     var body: some View {
@@ -26,11 +35,8 @@ struct AnalyticsDashboardView: View {
             if viewModel.isLoading {
                 AnalyticsShimmerView()
                     .transition(.opacity)
-            } else if let stats = viewModel.stats {
-                dashboardContent(stats)
-                    .transition(.opacity)
             } else {
-                emptyState
+                dashboardContent
                     .transition(.opacity)
             }
         }
@@ -46,6 +52,9 @@ struct AnalyticsDashboardView: View {
                 await viewModel.loadStats()
             }
         }
+        // Usage is never fetched on appear. The Keychain is read only on an explicit action
+        // (Enable / Load / Refresh); restarts show the persisted snapshot, so navigating here
+        // never prompts.
     }
 
     // MARK: - Toolbar
@@ -172,7 +181,12 @@ struct AnalyticsDashboardView: View {
 
     private var refreshButton: some View {
         Button {
-            Task { await viewModel.loadStats() }
+            Task {
+                await viewModel.loadStats()
+                if provider.supports(.usage) {
+                    await usageStore.refresh(force: true)
+                }
+            }
         } label: {
             Image(systemName: "arrow.clockwise")
                 .foregroundStyle(PoirotTheme.Colors.textTertiary)
@@ -182,77 +196,98 @@ struct AnalyticsDashboardView: View {
         .help("Refresh analytics")
     }
 
-    // MARK: - Empty State
-
-    private var emptyState: some View {
-        VStack(spacing: PoirotTheme.Spacing.md) {
-            Image(systemName: "chart.xyaxis.line")
-                .font(.system(size: 48))
-                .foregroundStyle(PoirotTheme.Colors.textTertiary)
-                .symbolEffect(.bounce, value: loadBounce)
-
-            Text("No Analytics Data")
-                .font(PoirotTheme.Typography.heading)
-                .foregroundStyle(PoirotTheme.Colors.textPrimary)
-
-            Text("Stats cache not found at ~/.claude/stats-cache.json")
-                .font(PoirotTheme.Typography.caption)
-                .foregroundStyle(PoirotTheme.Colors.textSecondary)
-        }
-        .onAppear { loadBounce += 1 }
-    }
-
     // MARK: - Dashboard Content
 
-    private func dashboardContent(_ stats: StatsCache) -> some View {
+    /// Always renders the header and the usage section (when supported), so usage limits are
+    /// reachable even when there's no stats cache. The stats area below shows charts when the
+    /// cache is present, or a compact notice when it isn't.
+    private var dashboardContent: some View {
         VStack(spacing: 0) {
-            header(stats)
+            header(viewModel.stats)
             ScrollView {
                 VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xxl) {
-                    summaryCards(stats)
-
-                    DailyActivityChart(
-                        dailyActivity: viewModel.filteredDailyActivity,
-                        selectedDate: $dailySelectedDate
-                    )
-
-                    HourlyActivityChart(hourCounts: stats.sortedHourCounts)
-
-                    ContributionHeatmap(entries: viewModel.heatmapData)
-
-                    TokenUsageOverTimeChart(
-                        data: viewModel.tokenTimeSeriesData,
-                        selectedDate: $tokenSelectedDate
-                    )
-
-                    ToolCallsOverTimeChart(
-                        dailyActivity: viewModel.filteredDailyActivity,
-                        selectedDate: $toolCallSelectedDate
-                    )
-
-                    HStack(alignment: .top, spacing: PoirotTheme.Spacing.lg) {
-                        ModelUsageChart(
-                            modelUsage: stats.modelUsage,
-                            selectedAngle: $modelSelectedAngle
-                        )
-                        .frame(maxHeight: .infinity)
-
-                        CostBreakdownView(
-                            entries: viewModel.costBreakdownEntries,
-                            totalCost: viewModel.totalCost
-                        )
-                        .frame(maxHeight: .infinity)
+                    if provider.supports(.usage) {
+                        usageSection
                     }
-                    .fixedSize(horizontal: false, vertical: true)
+
+                    if let stats = viewModel.stats {
+                        statsCharts(stats)
+                    } else {
+                        noStatsNotice
+                    }
                 }
                 .padding(PoirotTheme.Spacing.xxl)
             }
         }
     }
 
+    @ViewBuilder
+    private func statsCharts(_ stats: StatsCache) -> some View {
+        summaryCards(stats)
+
+        DailyActivityChart(
+            dailyActivity: viewModel.filteredDailyActivity,
+            selectedDate: $dailySelectedDate
+        )
+
+        HourlyActivityChart(hourCounts: stats.sortedHourCounts)
+
+        ContributionHeatmap(entries: viewModel.heatmapData)
+
+        TokenUsageOverTimeChart(
+            data: viewModel.tokenTimeSeriesData,
+            selectedDate: $tokenSelectedDate
+        )
+
+        ToolCallsOverTimeChart(
+            dailyActivity: viewModel.filteredDailyActivity,
+            selectedDate: $toolCallSelectedDate
+        )
+
+        HStack(alignment: .top, spacing: PoirotTheme.Spacing.lg) {
+            ModelUsageChart(
+                modelUsage: stats.modelUsage,
+                selectedAngle: $modelSelectedAngle
+            )
+            .frame(maxHeight: .infinity)
+
+            CostBreakdownView(
+                entries: viewModel.costBreakdownEntries,
+                totalCost: viewModel.totalCost
+            )
+            .frame(maxHeight: .infinity)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - No Stats Notice
+
+    private var noStatsNotice: some View {
+        VStack(spacing: PoirotTheme.Spacing.md) {
+            Image(systemName: "chart.xyaxis.line")
+                .font(.system(size: 40))
+                .foregroundStyle(PoirotTheme.Colors.textTertiary)
+                .symbolEffect(.bounce, value: loadBounce)
+
+            Text("No session analytics yet")
+                .font(PoirotTheme.Typography.headingSmall)
+                .foregroundStyle(PoirotTheme.Colors.textPrimary)
+
+            // swiftlint:disable:next line_length
+            Text("No Claude Code sessions found yet. Analytics are computed locally from your sessions and appear once you've used Claude Code in a project.")
+                .font(PoirotTheme.Typography.caption)
+                .foregroundStyle(PoirotTheme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, PoirotTheme.Spacing.xxxl)
+        .onAppear { loadBounce += 1 }
+    }
+
     // MARK: - Header
 
-    private func header(_ stats: StatsCache) -> some View {
+    private func header(_ stats: StatsCache?) -> some View {
         VStack(alignment: .leading, spacing: PoirotTheme.Spacing.sm) {
             HStack(spacing: PoirotTheme.Spacing.md) {
                 Image(systemName: "chart.xyaxis.line")
@@ -269,27 +304,29 @@ struct AnalyticsDashboardView: View {
                         .font(PoirotTheme.Typography.heading)
                         .foregroundStyle(PoirotTheme.Colors.textPrimary)
 
-                    HStack(spacing: PoirotTheme.Spacing.xs) {
-                        Text("Last computed: \(AnalyticsFormatters.formatLocalizedDate(stats.lastComputedDate))")
-                            .font(PoirotTheme.Typography.tiny)
-                            .foregroundStyle(PoirotTheme.Colors.textTertiary)
-                            .padding(.horizontal, PoirotTheme.Spacing.sm)
-                            .padding(.vertical, PoirotTheme.Spacing.xxs)
-                            .background(
-                                Capsule().fill(PoirotTheme.Colors.bgElevated)
-                            )
+                    if let stats {
+                        HStack(spacing: PoirotTheme.Spacing.xs) {
+                            Text("Last computed: \(AnalyticsFormatters.formatLocalizedDate(stats.lastComputedDate))")
+                                .font(PoirotTheme.Typography.tiny)
+                                .foregroundStyle(PoirotTheme.Colors.textTertiary)
+                                .padding(.horizontal, PoirotTheme.Spacing.sm)
+                                .padding(.vertical, PoirotTheme.Spacing.xxs)
+                                .background(
+                                    Capsule().fill(PoirotTheme.Colors.bgElevated)
+                                )
 
-                        if case let .custom(start, end) = viewModel.selectedDateRange {
-                            Text(
-                                "\(AnalyticsFormatters.formatShortDate(start)) — \(AnalyticsFormatters.formatShortDate(end))"
-                            )
-                            .font(PoirotTheme.Typography.tiny)
-                            .foregroundStyle(PoirotTheme.Colors.accent)
-                            .padding(.horizontal, PoirotTheme.Spacing.sm)
-                            .padding(.vertical, PoirotTheme.Spacing.xxs)
-                            .background(
-                                Capsule().fill(PoirotTheme.Colors.accentDim)
-                            )
+                            if case let .custom(start, end) = viewModel.selectedDateRange {
+                                Text(
+                                    "\(AnalyticsFormatters.formatShortDate(start)) — \(AnalyticsFormatters.formatShortDate(end))"
+                                )
+                                .font(PoirotTheme.Typography.tiny)
+                                .foregroundStyle(PoirotTheme.Colors.accent)
+                                .padding(.horizontal, PoirotTheme.Spacing.sm)
+                                .padding(.vertical, PoirotTheme.Spacing.xxs)
+                                .background(
+                                    Capsule().fill(PoirotTheme.Colors.accentDim)
+                                )
+                            }
                         }
                     }
                 }
@@ -297,7 +334,7 @@ struct AnalyticsDashboardView: View {
                 Spacer()
             }
 
-            Text("Claude Code usage statistics from ~/.claude/stats-cache.json")
+            Text("Claude Code usage statistics, computed locally from your sessions.")
                 .font(PoirotTheme.Typography.caption)
                 .foregroundStyle(PoirotTheme.Colors.textSecondary)
         }
@@ -308,6 +345,106 @@ struct AnalyticsDashboardView: View {
             Divider().opacity(0.3)
         }
     }
+
+    // MARK: - Usage Limits
+
+    @ViewBuilder
+    private var usageSection: some View {
+        VStack(alignment: .leading, spacing: PoirotTheme.Spacing.md) {
+            HStack(spacing: PoirotTheme.Spacing.sm) {
+                Text("Usage Limits")
+                    .font(PoirotTheme.Typography.headingSmall)
+                    .foregroundStyle(PoirotTheme.Colors.textPrimary)
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(PoirotTheme.Colors.textTertiary)
+                    // swiftlint:disable:next line_length
+                    .help("Subscription rate-limit windows from your Claude Code session. No extra login — Poirot reads the token Claude Code already stores.")
+                Spacer()
+            }
+
+            usageContent
+        }
+    }
+
+    @ViewBuilder
+    private var usageContent: some View {
+        if !usageStore.isEnabled {
+            UsageOptInCard {
+                Task { await usageStore.enable() }
+            }
+        } else {
+            enabledUsageContent
+        }
+    }
+
+    @ViewBuilder
+    private var enabledUsageContent: some View {
+        switch usageStore.state {
+        case let .loaded(usage):
+            loadedUsage(usage)
+
+        case .loading:
+            UsagePlaceholderCard(
+                icon: "gauge.with.dots.needle.bottom.50percent",
+                message: "Loading usage limits…",
+                pulse: true
+            )
+
+        case let .idle(note):
+            // Load reads the Keychain only on this explicit tap; the disclaimer stays in view.
+            // After a failed attempt, `note` explains why and the action becomes "Try again".
+            UsageOptInCard(
+                icon: note == nil ? "gauge.with.dots.needle.bottom.50percent" : "key.slash",
+                title: note == nil ? "Load your usage limits" : "Couldn't read your usage limits",
+                message: note ?? "Fetch your current 5-hour and 7-day rate-limit windows.",
+                actionTitle: note == nil ? "Load" : "Try again",
+                actionIcon: note == nil ? "arrow.down.circle" : "arrow.clockwise"
+            ) { Task { await usageStore.refresh(force: true) } }
+        }
+    }
+
+    @ViewBuilder
+    private func loadedUsage(_ usage: ClaudeUsage) -> some View {
+        let now = usageNow ?? Date()
+        VStack(spacing: PoirotTheme.Spacing.md) {
+            HStack(spacing: PoirotTheme.Spacing.md) {
+                UsageGaugeCard(title: "5-Hour Window", icon: "clock.arrow.circlepath", window: usage.fiveHour, now: now)
+                UsageGaugeCard(title: "7-Day Window", icon: "calendar", window: usage.sevenDay, now: now)
+            }
+            .frame(height: usageCardHeight)
+
+            if usage.sevenDayOpus != nil || usage.sevenDaySonnet != nil {
+                HStack(spacing: PoirotTheme.Spacing.md) {
+                    if let opus = usage.sevenDayOpus {
+                        UsageGaugeCard(title: "Opus · Weekly", icon: "sparkle", window: opus, now: now)
+                    }
+                    if let sonnet = usage.sevenDaySonnet {
+                        UsageGaugeCard(title: "Sonnet · Weekly", icon: "wand.and.stars", window: sonnet, now: now)
+                    }
+                }
+                .frame(height: usageCardHeight)
+            }
+
+            if let spend = usage.spend, spend.enabled {
+                UsagePlaceholderCard(
+                    icon: "dollarsign.circle",
+                    message: "Spend: \(String(format: "$%.2f", spend.usedDollars)) · \(Int(spend.utilization.rounded()))% of limit",
+                    tint: PoirotTheme.Colors.green
+                )
+            }
+
+            if let extra = usage.extraUsage, extra.enabled {
+                UsagePlaceholderCard(
+                    icon: "plus.circle",
+                    message: "Extra usage: \(Int((extra.utilization ?? 0).rounded()))% used",
+                    tint: PoirotTheme.Colors.orange
+                )
+            }
+        }
+    }
+
+    private let usageCardHeight: CGFloat = 96
 
     // MARK: - Summary Cards
 

@@ -155,6 +155,7 @@ jobs:
           -skip-testing PoirotTests/ScreenshotTests_ThinkingBlocks \
           -skip-testing PoirotTests/ScreenshotTests_Todos \
           -skip-testing PoirotTests/ScreenshotTests_ToolBlocks \
+          -skip-testing PoirotTests/ScreenshotTests_Usage \
           -skip-testing PoirotTests/ScreenshotTests_Windows \
           test-without-building
 

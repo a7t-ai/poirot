@@ -77,7 +77,10 @@ final class AnalyticsViewModel {
     func loadStats() async {
         isLoading = true
         let loaded = await Task.detached {
+            // Prefer Claude Code's pre-computed cache; if it isn't written on this setup,
+            // compute the same stats locally from the session transcripts.
             StatsCacheLoader.load()
+                ?? StatsComputer.compute(projectsPath: SessionLoader().claudeProjectsPath)
         }.value
         withAnimation(.easeInOut(duration: 0.4)) {
             stats = loaded

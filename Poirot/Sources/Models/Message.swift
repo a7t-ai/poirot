@@ -132,8 +132,28 @@ extension Message {
 nonisolated struct TokenUsage: Hashable {
     let input: Int
     let output: Int
+    let cacheRead: Int
+    let cacheCreation: Int
 
+    init(input: Int, output: Int, cacheRead: Int = 0, cacheCreation: Int = 0) {
+        self.input = input
+        self.output = output
+        self.cacheRead = cacheRead
+        self.cacheCreation = cacheCreation
+    }
+
+    /// Billable token volume for this turn (prompt input + generated output). Used for the
+    /// session's cumulative token total.
     var total: Int { input + output }
+
+    /// Total prompt tokens the model held as context on this turn — fresh input plus cached
+    /// reads and cache writes. This is what fills the context window.
+    var contextTokens: Int { input + cacheRead + cacheCreation }
+
+    /// Fraction (0...1) of the prompt served from cache rather than sent fresh.
+    var cacheHitRate: Double {
+        contextTokens > 0 ? Double(cacheRead) / Double(contextTokens) : 0
+    }
 
     var formatted: String {
         let total = Double(total)
