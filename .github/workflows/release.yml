@@ -146,10 +146,10 @@ jobs:
             if [ -n "$COMMIT_LINES" ]; then
               echo "### What's Changed" >> /tmp/release-body.md
               while IFS= read -r line; do
-                SHA=$(echo "$line" | cut -c1-40)
+                COMMIT_SHA=$(echo "$line" | cut -c1-40)
                 MSG=$(echo "$line" | cut -c42-)
                 # Look up GitHub username for this commit
-                AUTHOR=$(gh api "repos/${REPO}/commits/${SHA}" --jq '.author.login // empty' 2>/dev/null)
+                AUTHOR=$(gh api "repos/${REPO}/commits/${COMMIT_SHA}" --jq '.author.login // empty' 2>/dev/null)
                 if [ -n "$AUTHOR" ] && [ "$AUTHOR" != "github-actions[bot]" ] && [ "$AUTHOR" != "web-flow" ]; then
                   echo "- ${MSG} by @${AUTHOR}" >> /tmp/release-body.md
                 else
@@ -168,6 +168,7 @@ jobs:
           echo "### Install via Homebrew" >> /tmp/release-body.md
           echo '```bash' >> /tmp/release-body.md
           echo "brew tap a7t-ai/poirot" >> /tmp/release-body.md
+          echo "brew trust a7t-ai/poirot" >> /tmp/release-body.md
           echo "brew install --cask poirot" >> /tmp/release-body.md
           echo '```' >> /tmp/release-body.md
           echo "" >> /tmp/release-body.md
@@ -204,7 +205,7 @@ jobs:
             desc "Native macOS companion for Claude Code"
             homepage "https://github.com/a7t-ai/poirot"
 
-            depends_on macos: ">= :sequoia"
+            depends_on macos: :sequoia
 
             app "Poirot.app"
 
