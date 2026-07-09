@@ -151,6 +151,57 @@ struct UsageStoreTests {
     }
 
     @Test
+    func refresh_rateLimited_backsOffUntilForced() async {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .rateLimited(retryAfter: nil)
+        let store = UsageStore(
+            loader: mock, throttle: 0, autoRefreshEnabled: false, defaults: Self.freshDefaults(enabled: true)
+        )
+
+        await store.refresh(force: true) // hits 429 → arms the backoff
+        #expect(mock.loadUsageCallsCount == 1)
+
+        await store.refresh() // non-forced (like a timer tick) is suppressed during backoff
+        #expect(mock.loadUsageCallsCount == 1)
+
+        await store.refresh(force: true) // an explicit tap still tries
+        #expect(mock.loadUsageCallsCount == 2)
+    }
+
+    @Test
+    func refresh_rateLimitedFromIdle_showsNote() async {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .rateLimited(retryAfter: nil)
+        let store = UsageStore(
+            loader: mock, throttle: 0, autoRefreshEnabled: false, defaults: Self.freshDefaults(enabled: true)
+        )
+
+        await store.refresh(force: true)
+
+        guard case let .idle(note) = store.state else {
+            Issue.record("expected idle after rate limit")
+            return
+        }
+        #expect(note?.contains("limiting") == true)
+    }
+
+    @Test
+    func refresh_rateLimitedAfterLoaded_keepsStaleData() async {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .success(Self.sampleUsage)
+        let store = UsageStore(
+            loader: mock, throttle: 0, autoRefreshEnabled: false, defaults: Self.freshDefaults(enabled: true)
+        )
+        await store.refresh()
+
+        mock.loadUsageReturnValue = .rateLimited(retryAfter: nil)
+        await store.refresh(force: true)
+
+        // Rate limiting keeps the cached gauges instead of dropping to an error state.
+        #expect(store.usage == Self.sampleUsage)
+    }
+
+    @Test
     func refresh_networkFailureAfterLoaded_keepsStaleData() async {
         let mock = UsageLoadingMock()
         mock.loadUsageReturnValue = .success(Self.sampleUsage)

@@ -48,6 +48,10 @@ final class UsageStore {
     /// Master switch for the background poll — off in previews and snapshot tests.
     private let autoRefreshEnabled: Bool
     private var autoRefreshTask: Task<Void, Never>?
+    /// When set, skip non-forced refreshes until this instant (rate-limit backoff).
+    private var rateLimitedUntil: Date?
+    /// Fallback backoff when the 429 response carries no `Retry-After`.
+    private static let defaultRateLimitBackoff: TimeInterval = 300
 
     init(
         loader: any UsageLoading = ClaudeUsageLoader(),
@@ -113,6 +117,7 @@ final class UsageStore {
         stopAutoRefresh()
         clearSnapshot()
         lastUpdated = nil
+        rateLimitedUntil = nil
         state = .idle(note: nil)
     }
 
@@ -168,6 +173,11 @@ final class UsageStore {
         if !force, let lastUpdated, Date().timeIntervalSince(lastUpdated) < throttle {
             return
         }
+        // The usage endpoint rate-limits how often it can be queried. After a 429 we hold off
+        // (honoring Retry-After) so the poll doesn't keep hammering; an explicit tap still tries.
+        if !force, let rateLimitedUntil, Date() < rateLimitedUntil {
+            return
+        }
 
         let hadData = usage != nil
         if !hadData { state = .loading }
@@ -175,6 +185,7 @@ final class UsageStore {
         switch await loader.loadUsage() {
         case let .success(usage):
             let now = Date()
+            rateLimitedUntil = nil
             state = .loaded(usage)
             lastUpdated = now
             saveSnapshot(usage, date: now)
@@ -186,6 +197,13 @@ final class UsageStore {
             clearSnapshot()
             lastUpdated = nil
             state = .idle(note: "Couldn't read your Claude Code token — allow Keychain access, then load again.")
+
+        case let .rateLimited(retryAfter):
+            // Back off before the next poll; keep any cached gauges rather than dropping them.
+            rateLimitedUntil = Date().addingTimeInterval(retryAfter ?? Self.defaultRateLimitBackoff)
+            if !hadData {
+                state = .idle(note: "Anthropic is limiting usage checks right now — try again in a few minutes.")
+            }
 
         case .failure:
             // Transient (e.g. network): keep any cached gauges; otherwise offer Load.
