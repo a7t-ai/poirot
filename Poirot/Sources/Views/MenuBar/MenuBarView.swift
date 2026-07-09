@@ -48,6 +48,7 @@ struct MenuBarView: View {
     private var usageSection: some View {
         if case let .loaded(usage) = usageStore.state {
             VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xs) {
+                usageHeader
                 MenuBarUsageRow(label: "5h", window: usage.fiveHour)
                 MenuBarUsageRow(label: "7d", window: usage.sevenDay)
             }
@@ -55,6 +56,53 @@ struct MenuBarView: View {
             .padding(.horizontal, PoirotTheme.Spacing.lg)
             .padding(.vertical, PoirotTheme.Spacing.sm)
         }
+    }
+
+    private var usageHeader: some View {
+        HStack(spacing: PoirotTheme.Spacing.xs) {
+            Text("Usage")
+                .font(PoirotTheme.Typography.microSemibold)
+                .foregroundStyle(PoirotTheme.Colors.textTertiary)
+
+            Spacer()
+
+            usageCadenceMenu
+
+            Button {
+                Task { await usageStore.refresh(force: true) }
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(PoirotTheme.Typography.tiny)
+                    .foregroundStyle(PoirotTheme.Colors.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(usageStore.state == .loading)
+            .help("Refresh usage now")
+        }
+    }
+
+    private var usageCadenceMenu: some View {
+        Menu {
+            Picker("Auto-refresh", selection: Binding(
+                get: { usageStore.refreshInterval },
+                set: { usageStore.setRefreshInterval($0) }
+            )) {
+                ForEach(UsageRefreshInterval.allCases) { option in
+                    Text(option.label).tag(option)
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Image(systemName: usageStore.refreshInterval == .manual ? "hand.tap" : "timer")
+                Text(usageStore.refreshInterval.shortLabel)
+            }
+            .font(PoirotTheme.Typography.tiny)
+            .foregroundStyle(PoirotTheme.Colors.textTertiary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Auto-refresh interval")
     }
 
     // MARK: - Header

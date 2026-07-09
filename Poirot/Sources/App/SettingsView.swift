@@ -19,12 +19,70 @@ struct SettingsView: View {
                     Label("Viewer", systemImage: "eye")
                 }
 
+            UsageSettingsView()
+                .tabItem {
+                    Label("Usage", systemImage: "gauge.with.dots.needle.bottom.50percent")
+                }
+
             MenuBarSettingsView()
                 .tabItem {
                     Label("Menu Bar", systemImage: "menubar.rectangle")
                 }
         }
         .frame(width: 560, height: 360)
+    }
+}
+
+// MARK: - Usage
+
+private struct UsageSettingsView: View {
+    @Environment(UsageStore.self)
+    private var usageStore
+    @Environment(\.provider)
+    private var provider
+
+    private var intervalBinding: Binding<UsageRefreshInterval> {
+        Binding(
+            get: { usageStore.refreshInterval },
+            set: { usageStore.setRefreshInterval($0) }
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if provider.supports(.usage) {
+                settingsRow {
+                    Text("Auto-Refresh:")
+                } control: {
+                    Picker("", selection: intervalBinding) {
+                        ForEach(UsageRefreshInterval.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 200)
+                }
+
+                settingsRow {
+                    Text("")
+                } control: {
+                    Text(usageStore.refreshInterval == .manual
+                        ? "Usage updates only when you tap refresh."
+                        : "Poirot re-fetches your usage \(usageStore.refreshInterval.label.lowercased()) while it's open.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            } else {
+                Text("Usage limits aren't available for this provider.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 32)
     }
 }
 

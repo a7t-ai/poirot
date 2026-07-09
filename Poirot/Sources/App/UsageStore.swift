@@ -26,6 +26,7 @@ final class UsageStore {
     }
 
     static let enabledKey = "usageLimitsEnabled"
+    static let intervalKey = "usageRefreshIntervalMinutes"
     private static let snapshotKey = "usageSnapshot"
     private static let snapshotDateKey = "usageSnapshotDate"
 
@@ -33,27 +34,36 @@ final class UsageStore {
     private(set) var lastUpdated: Date?
     /// Whether the user has opted in. Off by default — nothing is read or fetched until on.
     private(set) var isEnabled: Bool
+    /// User-chosen background cadence. `.manual` means the poll is off and the user reloads
+    /// on demand. Persisted; change it through `setRefreshInterval(_:)`.
+    private(set) var refreshInterval: UsageRefreshInterval
 
     private let loader: any UsageLoading
     private let defaults: UserDefaults
     /// Minimum spacing between non-forced refreshes, so repeated explicit taps don't hammer.
     private let throttle: TimeInterval
-    /// How often to silently re-fetch once opted in and loaded. `nil` disables the timer
-    /// entirely (previews and unit tests).
-    private let autoRefreshInterval: TimeInterval?
+    /// Test hook: when set, forces the poll interval for non-manual cadences (so timer behavior
+    /// is testable in well under a minute). `nil` in production, where `refreshInterval` rules.
+    private let autoRefreshOverride: TimeInterval?
+    /// Master switch for the background poll — off in previews and snapshot tests.
+    private let autoRefreshEnabled: Bool
     private var autoRefreshTask: Task<Void, Never>?
 
     init(
         loader: any UsageLoading = ClaudeUsageLoader(),
         throttle: TimeInterval = 30,
-        autoRefreshInterval: TimeInterval? = 60,
+        autoRefreshOverride: TimeInterval? = nil,
+        autoRefreshEnabled: Bool = true,
         defaults: UserDefaults = .standard
     ) {
         self.loader = loader
         self.throttle = throttle
-        self.autoRefreshInterval = autoRefreshInterval
+        self.autoRefreshOverride = autoRefreshOverride
+        self.autoRefreshEnabled = autoRefreshEnabled
         self.defaults = defaults
         self.isEnabled = defaults.bool(forKey: Self.enabledKey)
+        let storedMinutes = defaults.object(forKey: Self.intervalKey) as? Int
+        self.refreshInterval = storedMinutes.flatMap(UsageRefreshInterval.init(rawValue:)) ?? .default
         // Restore the last snapshot so a relaunch shows gauges WITHOUT reading the Keychain.
         if isEnabled, let snapshot = Self.loadSnapshot(from: defaults) {
             state = .loaded(snapshot.usage)
@@ -68,13 +78,20 @@ final class UsageStore {
     static func preview(_ state: State, enabled: Bool = true) -> UsageStore {
         let store = UsageStore(
             throttle: .greatestFiniteMagnitude,
-            autoRefreshInterval: nil,
+            autoRefreshEnabled: false,
             defaults: UserDefaults(suiteName: "fyi.poirot.preview") ?? .standard
         )
         store.isEnabled = enabled
         store.state = state
         store.lastUpdated = Date()
         return store
+    }
+
+    /// Effective poll interval in seconds, or `nil` when polling is off (disabled master switch
+    /// or `.manual`). The test override only speeds up non-manual cadences.
+    private var autoRefreshSeconds: TimeInterval? {
+        guard autoRefreshEnabled, refreshInterval != .manual else { return nil }
+        return autoRefreshOverride ?? refreshInterval.seconds
     }
 
     /// The most recently loaded usage, if any (survives across in-flight refreshes).
@@ -101,12 +118,22 @@ final class UsageStore {
 
     // MARK: - Background auto-refresh
 
-    /// Start silently polling for fresh usage. Idempotent, and a no-op when disabled or when the
-    /// timer is turned off (`autoRefreshInterval == nil`). Ticks only re-fetch while `.loaded`, so
-    /// the timer never triggers a Keychain read out of an idle state.
+    /// Change the background cadence (or turn it off with `.manual`). Persists the choice and
+    /// reconfigures the running poll so it takes effect immediately.
+    func setRefreshInterval(_ interval: UsageRefreshInterval) {
+        guard interval != refreshInterval else { return }
+        refreshInterval = interval
+        defaults.set(interval.rawValue, forKey: Self.intervalKey)
+        stopAutoRefresh()
+        startAutoRefresh() // no-op for `.manual`, otherwise restarts at the new cadence
+    }
+
+    /// Start silently polling for fresh usage. Idempotent, and a no-op when disabled, in manual
+    /// mode, or with polling turned off. Ticks only re-fetch while `.loaded`, so the timer never
+    /// triggers a Keychain read out of an idle state.
     func startAutoRefresh() {
         guard isEnabled, autoRefreshTask == nil,
-              let interval = autoRefreshInterval, interval > 0
+              let interval = autoRefreshSeconds, interval > 0
         else { return }
 
         autoRefreshTask = Task { [weak self] in

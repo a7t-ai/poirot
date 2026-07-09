@@ -110,6 +110,7 @@ struct PoirotApp: App {
         Settings {
             SettingsView()
                 .environment(appState)
+                .environment(usageStore)
         }
 
         MenuBarExtra("Poirot", image: "MenuBarIcon", isInserted: $showMenuBarIcon) {

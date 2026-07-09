@@ -222,7 +222,7 @@ struct UsageStoreTests {
         let store = UsageStore(
             loader: mock,
             throttle: 0,
-            autoRefreshInterval: 0.02,
+            autoRefreshOverride: 0.02,
             defaults: Self.freshDefaults(enabled: false)
         )
 
@@ -244,7 +244,7 @@ struct UsageStoreTests {
         let store = UsageStore(
             loader: mock,
             throttle: 0,
-            autoRefreshInterval: 0.02,
+            autoRefreshOverride: 0.02,
             defaults: Self.freshDefaults(enabled: true)
         )
 
@@ -262,16 +262,57 @@ struct UsageStoreTests {
         let store = UsageStore(
             loader: mock,
             throttle: 0,
-            autoRefreshInterval: 0.02,
+            autoRefreshOverride: 0.02,
             defaults: Self.freshDefaults(enabled: false)
         )
         await store.enable()
 
         store.disable()
+        try await Task.sleep(for: .seconds(0.1)) // let any in-flight tick settle
         let countAtDisable = mock.loadUsageCallsCount
         try await Task.sleep(for: .seconds(0.2))
 
         // No further fetches after opting out.
         #expect(mock.loadUsageCallsCount == countAtDisable)
+    }
+
+    // MARK: - Refresh cadence
+
+    @Test
+    func refreshInterval_defaultsAndPersists() {
+        let defaults = Self.freshDefaults(enabled: false)
+        let store = UsageStore(loader: UsageLoadingMock(), autoRefreshEnabled: false, defaults: defaults)
+
+        #expect(store.refreshInterval == .default)
+
+        store.setRefreshInterval(.tenMinutes)
+        #expect(store.refreshInterval == .tenMinutes)
+        #expect(defaults.integer(forKey: UsageStore.intervalKey) == 10)
+
+        // A relaunch restores the chosen cadence.
+        let restored = UsageStore(loader: UsageLoadingMock(), autoRefreshEnabled: false, defaults: defaults)
+        #expect(restored.refreshInterval == .tenMinutes)
+    }
+
+    @Test
+    func setRefreshInterval_manual_stopsPolling() async throws {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .success(Self.sampleUsage)
+        let store = UsageStore(
+            loader: mock,
+            throttle: 0,
+            autoRefreshOverride: 0.02,
+            defaults: Self.freshDefaults(enabled: false)
+        )
+        await store.enable() // polling on the default (automatic) cadence
+        try await Self.waitUntil { mock.loadUsageCallsCount > 1 }
+
+        store.setRefreshInterval(.manual)
+        try await Task.sleep(for: .seconds(0.1)) // let any in-flight tick settle
+        let settled = mock.loadUsageCallsCount
+        try await Task.sleep(for: .seconds(0.2))
+
+        // Manual mode halts the background poll; the count no longer grows on its own.
+        #expect(mock.loadUsageCallsCount == settled)
     }
 }
