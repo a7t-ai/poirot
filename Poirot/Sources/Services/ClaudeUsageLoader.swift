@@ -38,6 +38,10 @@ nonisolated struct ClaudeUsageLoader: UsageLoading {
         if http.statusCode == 401 || http.statusCode == 403 {
             return .unauthenticated
         }
+        if http.statusCode == 429 {
+            let retryAfter = (http.value(forHTTPHeaderField: "Retry-After")).flatMap(TimeInterval.init)
+            return .rateLimited(retryAfter: retryAfter)
+        }
         guard http.statusCode == 200, let usage = ClaudeUsage.parse(data) else {
             return .failure
         }
