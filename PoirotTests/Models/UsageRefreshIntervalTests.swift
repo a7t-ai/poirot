@@ -11,15 +11,15 @@ struct UsageRefreshIntervalTests {
 
     @Test
     func automatic_mapsMinutesToSeconds() {
-        #expect(UsageRefreshInterval.oneMinute.seconds == 60)
         #expect(UsageRefreshInterval.fiveMinutes.seconds == 300)
+        #expect(UsageRefreshInterval.twentyMinutes.seconds == 1200)
         #expect(UsageRefreshInterval.thirtyMinutes.seconds == 1800)
     }
 
     @Test
     func shortLabel_isCompactMinutes() {
-        #expect(UsageRefreshInterval.twoMinutes.shortLabel == "2m")
         #expect(UsageRefreshInterval.tenMinutes.shortLabel == "10m")
+        #expect(UsageRefreshInterval.twentyMinutes.shortLabel == "20m")
     }
 
     @Test

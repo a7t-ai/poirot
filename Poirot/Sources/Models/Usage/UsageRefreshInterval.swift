@@ -4,13 +4,13 @@ import Foundation
 /// poll entirely — the user reloads on demand with the refresh button.
 enum UsageRefreshInterval: Int, CaseIterable, Identifiable, Sendable {
     case manual = 0
-    case oneMinute = 1
-    case twoMinutes = 2
     case fiveMinutes = 5
     case tenMinutes = 10
+    case twentyMinutes = 20
     case thirtyMinutes = 30
 
-    /// Cadence for a fresh install: frequent enough to feel live, gentle enough not to hammer.
+    /// Cadence for a fresh install: frequent enough to feel live, gentle enough not to hammer
+    /// the rate-limited usage endpoint.
     static let `default`: UsageRefreshInterval = .fiveMinutes
 
     var id: Int { rawValue }
@@ -24,10 +24,9 @@ enum UsageRefreshInterval: Int, CaseIterable, Identifiable, Sendable {
     var label: String {
         switch self {
         case .manual: "Manual"
-        case .oneMinute: "Every minute"
-        case .twoMinutes: "Every 2 minutes"
         case .fiveMinutes: "Every 5 minutes"
         case .tenMinutes: "Every 10 minutes"
+        case .twentyMinutes: "Every 20 minutes"
         case .thirtyMinutes: "Every 30 minutes"
         }
     }
