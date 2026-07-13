@@ -18,6 +18,31 @@ enum HighlightedText {
         return result
     }
 
+    // MARK: - Exact substring matching
+
+    /// Case-insensitive substring match, scored for ranking. Returns `nil` when `query` isn't
+    /// contained in `text`. This is the "Match Word" counterpart to `fuzzyMatch` — no scattered
+    /// subsequence hits, so searching `ssh` won't drag in "se**ss**ion" or "swiftUI s**h**ell".
+    /// Higher scores for a match at the start or just after a word boundary.
+    static func substringMatch(_ text: String, query: String) -> Int? {
+        guard !query.isEmpty else { return 0 }
+        let lower = text.lowercased()
+        let qLower = query.lowercased()
+        guard let range = lower.range(of: qLower) else { return nil }
+
+        var score = 100
+        if range.lowerBound == lower.startIndex {
+            score += 40
+        } else {
+            let before = lower.index(before: range.lowerBound)
+            let boundaries: Set<Character> = [" ", "-", "/", ".", "_", ":"]
+            if boundaries.contains(lower[before]) { score += 20 }
+        }
+        // Nudge shorter hosts ahead — a hit in a tight title beats one buried in a large blob.
+        score -= min(lower.count / 20, 30)
+        return score
+    }
+
     // MARK: - Fuzzy matching
 
     struct FuzzyResult {
