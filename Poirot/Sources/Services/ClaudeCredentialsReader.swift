@@ -46,3 +46,39 @@ nonisolated enum ClaudeCredentialsReader {
         return data
     }
 }
+
+/// In-memory cache for Claude Code's credential so background usage refreshes don't hit the
+/// Keychain — and re-trigger the macOS authorization dialog — on every poll. The Keychain is
+/// read only when the cache is empty or the cached token is about to expire; otherwise the
+/// same token is reused for the rest of its lifetime. On an auth failure the caller invalidates
+/// the cache so the next read picks up a token Claude Code has since rotated.
+actor ClaudeCredentialStore {
+    static let shared = ClaudeCredentialStore()
+
+    /// Re-read slightly before the token's stated expiry so a nearly-dead token is never sent.
+    private static let expiryMargin: TimeInterval = 60
+
+    private let reader: @Sendable () -> ClaudeCredentials?
+    private var cached: ClaudeCredentials?
+
+    init(reader: @escaping @Sendable () -> ClaudeCredentials? = { ClaudeCredentialsReader.read() }) {
+        self.reader = reader
+    }
+
+    /// Returns a usable credential, reading the Keychain only when necessary. Calls made within
+    /// the token's lifetime reuse the cached value and never touch the Keychain (so no prompt).
+    func current(now: Date = Date()) -> ClaudeCredentials? {
+        if let cached, !cached.isExpired(now: now.addingTimeInterval(Self.expiryMargin)) {
+            return cached
+        }
+        let fresh = reader()
+        cached = fresh
+        return fresh
+    }
+
+    /// Drops the cached credential so the next `current()` re-reads the Keychain. Call after an
+    /// authorization failure, when Claude Code has most likely rotated the token.
+    func invalidate() {
+        cached = nil
+    }
+}

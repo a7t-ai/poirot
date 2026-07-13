@@ -10,7 +10,9 @@ nonisolated struct ClaudeUsageLoader: UsageLoading {
     static let apiVersion = "2023-06-01"
 
     nonisolated func loadUsage() async -> UsageResult {
-        guard let credentials = ClaudeCredentialsReader.read() else {
+        // Reuse the cached credential when possible so repeated background refreshes don't hit
+        // the Keychain — and re-prompt for authorization — on every poll.
+        guard let credentials = await ClaudeCredentialStore.shared.current() else {
             return .unauthenticated
         }
         // Poirot never refreshes tokens; if Claude Code hasn't refreshed its own, surface
@@ -36,6 +38,9 @@ nonisolated struct ClaudeUsageLoader: UsageLoading {
         }
 
         if http.statusCode == 401 || http.statusCode == 403 {
+            // The cached token was rejected — drop it so the next attempt re-reads whatever
+            // credential Claude Code has rotated to.
+            await ClaudeCredentialStore.shared.invalidate()
             return .unauthenticated
         }
         if http.statusCode == 429 {
