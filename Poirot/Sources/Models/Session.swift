@@ -18,6 +18,10 @@ nonisolated struct Session: Identifiable, Hashable {
     let endedAt: Date?
     let agentType: String?
     let agentDescription: String?
+    /// Lowercased, length-capped concatenation of the conversation's free text — user prompts,
+    /// assistant replies, thinking, and tool calls/results. Lets global search match sessions by
+    /// what was discussed inside them, not just their title. Empty when built without indexing.
+    let searchableText: String
 
     init(
         id: String,
@@ -36,7 +40,8 @@ nonisolated struct Session: Identifiable, Hashable {
         parentSessionId: String? = nil,
         endedAt: Date? = nil,
         agentType: String? = nil,
-        agentDescription: String? = nil
+        agentDescription: String? = nil,
+        searchableText: String = ""
     ) {
         self.id = id
         self.projectPath = projectPath
@@ -55,6 +60,7 @@ nonisolated struct Session: Identifiable, Hashable {
         self.endedAt = endedAt
         self.agentType = agentType
         self.agentDescription = agentDescription
+        self.searchableText = searchableText
     }
 
     var projectName: String {

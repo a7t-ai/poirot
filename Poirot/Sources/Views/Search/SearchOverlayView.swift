@@ -88,6 +88,29 @@ private struct SearchGroup {
     let results: [SearchResult]
 }
 
+/// How ⌘K search matches text. Fuzzy allows scattered subsequence hits (typo-tolerant but noisy —
+/// "ssh" also matches "se**ss**ion"); Match Word requires the query as a contiguous substring.
+private enum SearchMode: String, CaseIterable, Identifiable {
+    case fuzzy
+    case matchWord
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .fuzzy: "Fuzzy"
+        case .matchWord: "Match Word"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .fuzzy: "wand.and.stars"
+        case .matchWord: "text.magnifyingglass"
+        }
+    }
+}
+
 // MARK: - SearchOverlayView
 
 struct SearchOverlayView: View {
@@ -113,6 +136,12 @@ struct SearchOverlayView: View {
     private var escMonitor: Any?
     @FocusState
     private var isFocused: Bool
+    @AppStorage("globalSearchMode")
+    private var searchModeRaw = SearchMode.fuzzy.rawValue
+
+    private var searchMode: SearchMode {
+        SearchMode(rawValue: searchModeRaw) ?? .fuzzy
+    }
 
     /// Cached config items
     @State
@@ -181,8 +210,13 @@ struct SearchOverlayView: View {
         query q: String
     ) -> [SearchGroup] {
         func score(_ text: String) -> Int {
-            HighlightedText.fuzzyMatch(text, query: q)?.score ?? 0
+            switch searchMode {
+            case .fuzzy: HighlightedText.fuzzyMatch(text, query: q)?.score ?? 0
+            case .matchWord: HighlightedText.substringMatch(text, query: q) ?? 0
+            }
         }
+
+        let loweredQuery = q.lowercased()
 
         var all: [SearchResult] = []
 
@@ -190,7 +224,12 @@ struct SearchOverlayView: View {
         for project in appState.projects {
             for session in project.sessions {
                 if session.isSidechain, !appState.showAgentSessions { continue }
-                let best = max(score(session.title), score(project.name), score(session.id))
+                // Match on metadata first; fall back to a content match so sessions surface by
+                // what was discussed inside them, not just their title (mirrors Memory below).
+                let metaBest = max(score(session.title), score(project.name), score(session.id))
+                let best = metaBest > 0
+                    ? metaBest
+                    : (session.searchableText.contains(loweredQuery) ? 1 : 0)
                 guard best > 0 else { continue }
                 all.append(SearchResult(
                     id: "session-\(session.id)",
@@ -671,6 +710,9 @@ struct SearchOverlayView: View {
         .onChange(of: debouncedQuery) {
             triggerSearch()
         }
+        .onChange(of: searchModeRaw) {
+            triggerSearch()
+        }
         .onDisappear {
             debounceTask?.cancel()
             searchTask?.cancel()
@@ -710,6 +752,8 @@ struct SearchOverlayView: View {
                     .contentTransition(.numericText())
             }
 
+            searchModeMenu
+
             Text("ESC")
                 .font(PoirotTheme.Typography.tiny)
                 .foregroundStyle(
@@ -724,6 +768,38 @@ struct SearchOverlayView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 14)
+    }
+
+    private var searchModeMenu: some View {
+        Menu {
+            Picker("Match mode", selection: Binding(
+                get: { searchMode },
+                set: { searchModeRaw = $0.rawValue }
+            )) {
+                ForEach(SearchMode.allCases) { mode in
+                    Label(mode.label, systemImage: mode.icon).tag(mode)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: searchMode.icon)
+                Text(searchMode.label)
+                Image(systemName: "chevron.down")
+                    .font(PoirotTheme.Typography.nano)
+            }
+            .font(PoirotTheme.Typography.tiny)
+            .foregroundStyle(PoirotTheme.Colors.textTertiary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: PoirotTheme.Radius.xs)
+                    .fill(PoirotTheme.Colors.bgElevated)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Search matching mode")
     }
 
     // MARK: - Results List
@@ -773,7 +849,8 @@ struct SearchOverlayView: View {
                 UniversalResultRow(
                     result: result,
                     query: query,
-                    isSelected: idx == selectedIndex
+                    isSelected: idx == selectedIndex,
+                    useExactHighlight: searchMode == .matchWord
                 )
                 .id(idx)
                 .onTapGesture { navigate(to: result) }
@@ -1036,9 +1113,16 @@ private struct UniversalResultRow: View {
     let result: SearchResult
     let query: String
     let isSelected: Bool
+    var useExactHighlight = false
 
     @State
     private var isHovered = false
+
+    private var highlightedTitle: AttributedString {
+        useExactHighlight
+            ? HighlightedText.attributedString(result.title, query: query)
+            : HighlightedText.fuzzyAttributedString(result.title, query: query)
+    }
 
     var body: some View {
         HStack(spacing: PoirotTheme.Spacing.sm) {
@@ -1050,11 +1134,7 @@ private struct UniversalResultRow: View {
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xxs) {
-                Text(
-                    HighlightedText.fuzzyAttributedString(
-                        result.title, query: query
-                    )
-                )
+                Text(highlightedTitle)
                 .font(PoirotTheme.Typography.captionMedium)
                 .foregroundStyle(
                     PoirotTheme.Colors.textPrimary
