@@ -608,6 +608,76 @@ struct TranscriptParserTests {
         let expected = fmt.date(from: "2026-01-28T09:00:00.000Z")
         #expect(result?.startedAt == expected)
     }
+
+    // MARK: - Searchable Text
+
+    @Test
+    func parseSummary_searchableText_indexesConversationContent() throws {
+        let u = userRecord(content: "Deploy to Digital Ocean")
+        let a = assistantRecord(content: [
+            ["type": "text", "text": "Provisioning a droplet"],
+            ["type": "thinking", "thinking": "The user wants Kubernetes"],
+            ["type": "tool_use", "id": "t1", "name": "Bash", "input": ["command": "doctl compute droplet create"]],
+        ])
+        let toolResult: [[String: Any]] = [
+            ["type": "tool_result", "tool_use_id": "t1", "content": "droplet 12345 created"],
+        ]
+        let tr = userRecord(content: toolResult, uuid: "u2", timestamp: "2026-01-28T10:02:00.000Z")
+        let (dir, file) = try makeTempFile([u, a, tr].joined(separator: "\n"))
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let result = parser.parseSummary(fileURL: file, projectPath: "/test", sessionId: "s1", indexStartedAt: nil)
+        let text = try #require(result?.searchableText)
+        // User prose, assistant prose, reasoning, tool command, and tool output are all indexed.
+        #expect(text.contains("digital ocean"))
+        #expect(text.contains("provisioning a droplet"))
+        #expect(text.contains("kubernetes"))
+        #expect(text.contains("doctl compute droplet create"))
+        #expect(text.contains("droplet 12345 created"))
+        // Stored lowercased so search can match case-insensitively without re-lowercasing.
+        #expect(!text.contains("Digital Ocean"))
+    }
+
+    @Test
+    func parseSummary_searchableText_excludesSyntheticAndSidechain() throws {
+        let synth = assistantRecord(content: [["type": "text", "text": "SECRETSYNTH"]], model: "<synthetic>")
+        let side = userRecord(content: "SECRETSIDE", uuid: "u1", isSidechain: true)
+        let real = userRecord(content: "realcontent", uuid: "u2", timestamp: "2026-01-28T10:05:00.000Z")
+        let (dir, file) = try makeTempFile([synth, side, real].joined(separator: "\n"))
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let result = parser.parseSummary(fileURL: file, projectPath: "/test", sessionId: "s1", indexStartedAt: nil)
+        let text = try #require(result?.searchableText)
+        #expect(text.contains("realcontent"))
+        #expect(!text.contains("secretsynth"))
+        #expect(!text.contains("secretside"))
+    }
+
+    @Test
+    func parseSummary_searchableText_respectsCap() throws {
+        let big = String(repeating: "a", count: TranscriptParser.searchableTextCap + 5000)
+        let (dir, file) = try makeTempFile(userRecord(content: big))
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let result = parser.parseSummary(fileURL: file, projectPath: "/test", sessionId: "s1", indexStartedAt: nil)
+        let text = try #require(result?.searchableText)
+        // Bounded (allowing the trailing separator) so a giant transcript can't balloon memory.
+        #expect(text.count <= TranscriptParser.searchableTextCap + 1)
+        #expect(text.contains("aaaa"))
+    }
+
+    @Test
+    func parse_searchableText_indexesContent() throws {
+        let u = userRecord(content: "FindMe in Content")
+        let a = assistantRecord(content: [["type": "text", "text": "Here is the Response"]])
+        let (dir, file) = try makeTempFile([u, a].joined(separator: "\n"))
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let result = parser.parse(fileURL: file, projectPath: "/test", sessionId: "s1", indexStartedAt: nil)
+        let text = try #require(result?.searchableText)
+        #expect(text.contains("findme in content"))
+        #expect(text.contains("here is the response"))
+    }
 }
 
 // swiftlint:enable file_length type_body_length

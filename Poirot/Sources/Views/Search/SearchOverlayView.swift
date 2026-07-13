@@ -184,13 +184,20 @@ struct SearchOverlayView: View {
             HighlightedText.fuzzyMatch(text, query: q)?.score ?? 0
         }
 
+        let loweredQuery = q.lowercased()
+
         var all: [SearchResult] = []
 
         // Sessions
         for project in appState.projects {
             for session in project.sessions {
                 if session.isSidechain, !appState.showAgentSessions { continue }
-                let best = max(score(session.title), score(project.name), score(session.id))
+                // Match on metadata first; fall back to a content match so sessions surface by
+                // what was discussed inside them, not just their title (mirrors Memory below).
+                let metaBest = max(score(session.title), score(project.name), score(session.id))
+                let best = metaBest > 0
+                    ? metaBest
+                    : (session.searchableText.contains(loweredQuery) ? 1 : 0)
                 guard best > 0 else { continue }
                 all.append(SearchResult(
                     id: "session-\(session.id)",

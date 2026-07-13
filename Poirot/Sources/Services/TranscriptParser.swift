@@ -44,6 +44,7 @@ nonisolated struct TranscriptParser {
         guard !filtered.isEmpty else { return nil }
 
         var messages: [Message] = []
+        var searchable = ""
         var pendingGroupId: String?
         var pendingGroupBlocks: [ContentBlock] = []
         var pendingGroupTimestamp: Date?
@@ -71,6 +72,8 @@ nonisolated struct TranscriptParser {
             let type = record["type"] as? String ?? ""
             let message = record["message"] as? [String: Any] ?? [:]
             let timestamp = parseTimestamp(record["timestamp"]) ?? Date.distantPast
+
+            Self.appendSearchableText(from: message, type: type, into: &searchable, cap: Self.searchableTextCap)
 
             if type == "user" {
                 flushPendingGroup()
@@ -127,7 +130,8 @@ nonisolated struct TranscriptParser {
             startedAt: startedAt,
             model: firstModel,
             totalTokens: totalTokens,
-            fileURL: fileURL
+            fileURL: fileURL,
+            searchableText: searchable.lowercased()
         )
     }
 
@@ -253,6 +257,7 @@ nonisolated struct TranscriptParser {
         var latestTimestamp: Date?
         var totalTokens = 0
         var seenMsgIds: Set<String> = []
+        var searchable = ""
 
         for line in lines {
             guard !line.isEmpty,
@@ -271,6 +276,8 @@ nonisolated struct TranscriptParser {
             if type == "assistant" {
                 if message["model"] as? String == "<synthetic>" { continue }
             }
+
+            Self.appendSearchableText(from: message, type: type, into: &searchable, cap: Self.searchableTextCap)
 
             if let ts = parseTimestamp(record["timestamp"]) {
                 if earliestTimestamp == nil || ts < earliestTimestamp! {
@@ -337,7 +344,8 @@ nonisolated struct TranscriptParser {
             parentSessionId: parentSessionId,
             endedAt: latestTimestamp,
             agentType: agentType,
-            agentDescription: agentDescription
+            agentDescription: agentDescription,
+            searchableText: searchable.lowercased()
         )
     }
 
@@ -451,6 +459,82 @@ nonisolated struct TranscriptParser {
         }
 
         return texts.joined(separator: "\n")
+    }
+
+    // MARK: - Searchable Text
+
+    /// Per-session ceiling on indexed searchable characters. Bounds the memory held across a
+    /// large session list while still covering the substance of most conversations.
+    static let searchableTextCap = 20000
+
+    /// Appends the free text of one user/assistant message record — prose, reasoning, tool
+    /// commands/inputs, and tool-result output — into `out`, stopping once `out` reaches `cap`
+    /// characters. This is what global search matches against, so sessions surface by what was
+    /// discussed inside them and not just by their title.
+    static func appendSearchableText(
+        from message: [String: Any],
+        type: String,
+        into out: inout String,
+        cap: Int
+    ) {
+        guard out.count < cap else { return }
+        let content = message["content"]
+
+        if type == "user" {
+            if let text = content as? String {
+                appendSearchablePiece(text, into: &out, cap: cap)
+            } else if let blocks = content as? [[String: Any]] {
+                for block in blocks {
+                    guard out.count < cap else { return }
+                    switch block["type"] as? String {
+                    case "text":
+                        appendSearchablePiece(block["text"] as? String, into: &out, cap: cap)
+                    case "tool_result":
+                        appendSearchablePiece(flattenToolResult(block["content"]), into: &out, cap: cap)
+                    default:
+                        break
+                    }
+                }
+            }
+            return
+        }
+
+        guard let blocks = content as? [[String: Any]] else { return }
+        for block in blocks {
+            guard out.count < cap else { return }
+            switch block["type"] as? String {
+            case "text":
+                appendSearchablePiece(block["text"] as? String, into: &out, cap: cap)
+            case "thinking":
+                appendSearchablePiece(block["thinking"] as? String, into: &out, cap: cap)
+            case "tool_use":
+                appendSearchablePiece(block["name"] as? String, into: &out, cap: cap)
+                if let input = block["input"] as? [String: Any] {
+                    for value in input.values {
+                        guard out.count < cap else { break }
+                        appendSearchablePiece(value as? String, into: &out, cap: cap)
+                    }
+                }
+            default:
+                break
+            }
+        }
+    }
+
+    private static func appendSearchablePiece(_ piece: String?, into out: inout String, cap: Int) {
+        guard let piece, !piece.isEmpty, out.count < cap else { return }
+        let remaining = cap - out.count
+        out += piece.count > remaining ? String(piece.prefix(remaining)) : piece
+        out += " "
+    }
+
+    /// Flattens tool-result content — a plain string, or an array of text blocks — to text.
+    private static func flattenToolResult(_ content: Any?) -> String? {
+        if let str = content as? String { return str }
+        guard let array = content as? [[String: Any]] else { return nil }
+        return array
+            .compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }
+            .joined(separator: " ")
     }
 
     private func parseTimestamp(_ value: Any?) -> Date? {
