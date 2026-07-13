@@ -172,6 +172,7 @@ struct SessionsNavigationView: View {
                     .foregroundStyle(PoirotTheme.Colors.textTertiary)
             }
             .buttonStyle(.plain)
+            .help("Refresh sessions")
         }
     }
 
@@ -200,6 +201,7 @@ struct SessionsNavigationView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .help("Sort projects")
     }
 
     private var sessionsListSearchBar: some View {
@@ -222,6 +224,7 @@ struct SessionsNavigationView: View {
                         .foregroundStyle(PoirotTheme.Colors.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .help("Clear search")
             }
         }
         .padding(.horizontal, PoirotTheme.Spacing.sm)
@@ -404,6 +407,7 @@ private struct SessionsProjectSection: View {
                     .frame(width: 12, height: 18)
             }
             .buttonStyle(.plain)
+            .help(isCollapsed ? "Expand project" : "Collapse project")
 
             Button {
                 appState.selectedSession = nil
@@ -434,6 +438,7 @@ private struct SessionsProjectSection: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .help(project.name)
         }
         .padding(.horizontal, PoirotTheme.Spacing.md)
         .padding(.vertical, PoirotTheme.Spacing.sm)
@@ -599,6 +604,7 @@ private struct AgentSessionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(session.title)
         .onHover { isHovered = $0 }
     }
 
@@ -681,6 +687,7 @@ private struct SessionsListRow: View {
                             .contentShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .help(isAgentExpanded ? "Hide agent sessions" : "Show agent sessions")
                     }
 
                     Text(session.timeAgo)
@@ -738,6 +745,7 @@ private struct SessionsListRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(session.title)
         .onHover { isHovered = $0 }
     }
 

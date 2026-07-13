@@ -228,6 +228,7 @@ private struct SessionCard: View {
             }
         }
         .buttonStyle(.plain)
+        .help("Open session")
         .onHover { isHovered = $0 }
     }
 }
@@ -277,6 +278,7 @@ private struct SessionListRow: View {
             }
         }
         .buttonStyle(.plain)
+        .help("Open session")
         .onHover { isHovered = $0 }
     }
 }

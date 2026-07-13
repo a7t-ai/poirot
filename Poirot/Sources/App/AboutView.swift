@@ -33,6 +33,7 @@ struct AboutView: View {
                         }
                     }
                     .buttonStyle(.link)
+                    .help("Open the project on GitHub")
                     .font(.system(size: 12))
 
                     Text("·")
@@ -51,6 +52,7 @@ struct AboutView: View {
                         }
                     }
                     .buttonStyle(.link)
+                    .help("Sponsor on GitHub")
                     .font(.system(size: 12))
                 }
 
@@ -68,6 +70,7 @@ struct AboutView: View {
                         }
                     }
                     .buttonStyle(.link)
+                    .help("Open Threads profile")
                     .font(.system(size: 10))
 
                     Button("leo@leocardz.com") {
@@ -76,6 +79,7 @@ struct AboutView: View {
                         }
                     }
                     .buttonStyle(.link)
+                    .help("Send an email")
                     .font(.system(size: 10))
                 }
             }

@@ -73,6 +73,7 @@ struct ThinkingBlockView: View {
                 )
             }
             .buttonStyle(.plain)
+            .help(isExpanded ? "Collapse thinking" : "Expand thinking")
             .onAppear {
                 isExpanded = UserDefaults.standard.bool(forKey: "autoExpandBlocks")
             }
@@ -109,6 +110,7 @@ struct ThinkingBlockView: View {
                                 .padding(.vertical, PoirotTheme.Spacing.xs)
                         }
                         .buttonStyle(.plain)
+                        .help(showAll ? "Show less" : "Show all \(lines.count) lines")
                     }
                 }
                 .background(PoirotTheme.Colors.bgCode)
@@ -185,6 +187,7 @@ struct ThinkingBlockView: View {
                 )
         }
         .buttonStyle(.plain)
+        .help("Copy thinking")
         .animation(.easeInOut(duration: 0.2), value: copied)
     }
 }

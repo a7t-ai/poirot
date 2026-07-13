@@ -620,5 +620,6 @@ private struct HistoryToolbarContent: ToolbarContent {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        .help("Filter by project")
     }
 }

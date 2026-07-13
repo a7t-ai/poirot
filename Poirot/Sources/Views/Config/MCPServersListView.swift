@@ -418,6 +418,7 @@ private struct MCPServerCard: View {
                                 .foregroundStyle(PoirotTheme.Colors.accent)
                         }
                         .buttonStyle(.plain)
+                        .help(isExpanded ? "Show fewer tools" : "Show all tools")
                     }
                 }
             }

@@ -160,6 +160,7 @@ struct MenuBarView: View {
                 .font(PoirotTheme.Typography.tiny)
                 .foregroundStyle(PoirotTheme.Colors.textTertiary)
         }
+        .help("Total \(label)")
     }
 
     // MARK: - Search
@@ -190,6 +191,7 @@ struct MenuBarView: View {
                         .foregroundStyle(PoirotTheme.Colors.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .help("Clear search")
             }
         }
         .padding(.horizontal, PoirotTheme.Spacing.lg)
@@ -256,6 +258,7 @@ struct MenuBarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help("Open the main window")
         .foregroundStyle(PoirotTheme.Colors.textPrimary)
     }
 
@@ -359,6 +362,7 @@ private struct MenuBarSessionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(session.title)
         .onHover { isHovered = $0 }
     }
 }

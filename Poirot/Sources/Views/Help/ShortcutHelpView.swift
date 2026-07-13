@@ -45,6 +45,7 @@ struct ShortcutHelpView: View {
                     .foregroundStyle(PoirotTheme.Colors.textTertiary)
             }
             .buttonStyle(.plain)
+            .help("Close")
         }
         .padding(PoirotTheme.Spacing.xl)
     }

@@ -230,6 +230,7 @@ struct DebugLogView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .help("Clear search")
             }
         }
         .padding(.horizontal, PoirotTheme.Spacing.sm)
@@ -283,6 +284,7 @@ struct DebugLogView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .help(isActive ? "Hide \(level.label) entries" : "Show \(level.label) entries")
             }
         }
     }

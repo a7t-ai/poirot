@@ -349,6 +349,7 @@ private struct CommandCard: View {
             .cardChrome(isHovered: isHovered)
         }
         .buttonStyle(.plain)
+        .help("Open command")
         .onHover { isHovered = $0 }
     }
 }

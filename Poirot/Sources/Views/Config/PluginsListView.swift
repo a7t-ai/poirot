@@ -258,6 +258,7 @@ private struct PluginCard: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .help(plugin.isEnabled ? "Disable plugin" : "Enable plugin")
                 .popover(isPresented: $showTogglePopover) {
                     Button {
                         showTogglePopover = false

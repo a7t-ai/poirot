@@ -78,6 +78,7 @@ struct SidebarView: View {
             isActive: appState.selectedNav == item,
             isKeyboardSelected: isKeyboardSelected
         ))
+        .help(item.title)
     }
 
     private func recomputeSidebarCounts() async {

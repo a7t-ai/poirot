@@ -202,6 +202,7 @@ struct OnboardingView: View {
                         .foregroundStyle(PoirotTheme.Colors.textSecondary)
                 }
                 .buttonStyle(.plain)
+                .help("Go back")
                 .opacity(currentPage > 0 ? 1 : 0)
                 .disabled(currentPage == 0)
 
@@ -212,6 +213,7 @@ struct OnboardingView: View {
                         withAnimation { currentPage += 1 }
                     }
                     .buttonStyle(.borderedProminent)
+                    .help("Go to the next step")
                     .tint(PoirotTheme.Colors.accent)
                     .controlSize(.large)
                 } else {
@@ -219,6 +221,7 @@ struct OnboardingView: View {
                         dismiss()
                     }
                     .buttonStyle(.borderedProminent)
+                    .help("Get started with Poirot")
                     .tint(PoirotTheme.Colors.accent)
                     .controlSize(.large)
                 }

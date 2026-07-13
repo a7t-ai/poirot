@@ -337,6 +337,7 @@ private struct ModelCard: View {
                             .foregroundStyle(PoirotTheme.Colors.accent)
                         }
                         .buttonStyle(.plain)
+                        .help("Set as global default")
                     }
 
                     if hasProject, !isProjectDefault {
@@ -352,6 +353,7 @@ private struct ModelCard: View {
                             .foregroundStyle(PoirotTheme.Colors.green)
                         }
                         .buttonStyle(.plain)
+                        .help("Set as project default")
                     }
 
                     if isProjectDefault {
@@ -367,6 +369,7 @@ private struct ModelCard: View {
                             .foregroundStyle(PoirotTheme.Colors.red)
                         }
                         .buttonStyle(.plain)
+                        .help("Clear project override")
                     }
                 }
             }

@@ -324,6 +324,7 @@ private struct SkillCard: View {
             .cardChrome(isHovered: isHovered)
         }
         .buttonStyle(.plain)
+        .help("Open skill")
         .onHover { isHovered = $0 }
     }
 }

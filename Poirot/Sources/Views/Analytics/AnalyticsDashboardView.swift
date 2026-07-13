@@ -126,6 +126,7 @@ struct AnalyticsDashboardView: View {
                     viewModel.isCustomRangePresented = false
                 }
                 .buttonStyle(.plain)
+                .help("Cancel")
                 .foregroundStyle(PoirotTheme.Colors.textSecondary)
 
                 Spacer()
@@ -134,6 +135,7 @@ struct AnalyticsDashboardView: View {
                     viewModel.applyCustomRange()
                 }
                 .buttonStyle(.borderedProminent)
+                .help("Apply custom range")
                 .tint(PoirotTheme.Colors.accent)
             }
         }
@@ -150,6 +152,7 @@ struct AnalyticsDashboardView: View {
                     } label: {
                         Label("Share as Image", systemImage: "photo")
                     }
+                    .help("Share dashboard as image")
                 }
                 Section("Export CSV") {
                     ForEach(AnalyticsExportType.allCases) { type in
@@ -157,6 +160,7 @@ struct AnalyticsDashboardView: View {
                             let csv = AnalyticsCSVExporter.export(stats, type: type)
                             AnalyticsCSVExporter.presentSavePanel(csv: csv, suggestedName: type.suggestedFileName)
                         }
+                        .help("Export \(type.rawValue) as CSV")
                     }
                 }
             }
@@ -168,6 +172,7 @@ struct AnalyticsDashboardView: View {
         .menuIndicator(.hidden)
         .frame(width: 24)
         .disabled(viewModel.stats == nil)
+        .help("Share or export")
     }
 
     private func shareAsImage(_ stats: StatsCache) {

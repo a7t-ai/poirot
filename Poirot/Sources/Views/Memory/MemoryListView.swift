@@ -391,6 +391,7 @@ private struct ProjectChip: View {
             )
         }
         .buttonStyle(.plain)
+        .help("Filter by \(name)")
         .onHover { isHovered = $0 }
     }
 }
@@ -498,6 +499,7 @@ private struct MemoryCard: View {
             .cardChrome(isHovered: isHovered)
         }
         .buttonStyle(.plain)
+        .help("Open memory file")
         .onHover { isHovered = $0 }
     }
 }

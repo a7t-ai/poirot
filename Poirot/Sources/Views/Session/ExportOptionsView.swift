@@ -48,6 +48,7 @@ struct ExportOptionsView: View {
                     copyMarkdown()
                 }
                 .buttonStyle(.bordered)
+                .help("Copy session as Markdown")
 
                 Spacer()
 
@@ -55,6 +56,7 @@ struct ExportOptionsView: View {
                     exportMarkdown()
                 }
                 .buttonStyle(.borderedProminent)
+                .help("Export session as Markdown")
             }
         }
         .padding(PoirotTheme.Spacing.lg)

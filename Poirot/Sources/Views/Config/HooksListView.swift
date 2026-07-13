@@ -387,6 +387,7 @@ private struct HookCard: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        .help("Hook actions")
         .frame(width: 20)
     }
 }

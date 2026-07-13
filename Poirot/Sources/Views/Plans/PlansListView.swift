@@ -309,6 +309,7 @@ private struct PlanCard: View {
             .cardChrome(isHovered: isHovered)
         }
         .buttonStyle(.plain)
+        .help("Open plan")
         .onHover { isHovered = $0 }
         .confirmationDialog(
             "Delete \(plan.name)?",

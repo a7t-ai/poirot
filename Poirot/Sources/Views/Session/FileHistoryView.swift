@@ -85,6 +85,7 @@ struct FileHistoryView: View {
                     .foregroundStyle(PoirotTheme.Colors.textTertiary)
             }
             .buttonStyle(.plain)
+            .help("Close")
         }
         .padding(.horizontal, PoirotTheme.Spacing.xl)
         .padding(.vertical, PoirotTheme.Spacing.lg)
@@ -156,6 +157,7 @@ struct FileHistoryView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(entry.fileName)
     }
 
     // MARK: - Version Detail
@@ -218,6 +220,7 @@ struct FileHistoryView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .help("View version \(version.version)")
                 }
             }
             .padding(.horizontal, PoirotTheme.Spacing.lg)

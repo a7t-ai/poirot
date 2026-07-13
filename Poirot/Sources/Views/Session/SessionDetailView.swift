@@ -230,6 +230,7 @@ struct SessionDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .help("Filter by \(provider.toolDisplayName(for: toolName))")
                 }
 
                 if !appState.activeToolFilters.isEmpty {
@@ -241,6 +242,7 @@ struct SessionDetailView: View {
                             .foregroundStyle(PoirotTheme.Colors.textTertiary)
                     }
                     .buttonStyle(.plain)
+                    .help("Clear tool filters")
                 }
             }
             .padding(.horizontal, PoirotTheme.Spacing.lg)
@@ -344,6 +346,7 @@ struct SessionDetailView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .help(isLoadingMore ? "Loading more messages" : "Scroll to bottom")
                         .padding(.bottom, PoirotTheme.Spacing.md)
                         .transition(.opacity.combined(with: .scale(scale: 0.8)))
                     }
@@ -605,6 +608,7 @@ private struct ToolResultBlock: View {
                 .padding(.vertical, PoirotTheme.Spacing.xs)
             }
             .buttonStyle(.plain)
+            .help(isExpanded ? "Collapse tool result" : "Expand tool result")
 
             if isExpanded, !result.content.isEmpty {
                 Divider().opacity(0.3)
@@ -641,6 +645,7 @@ private struct ToolResultBlock: View {
                                 .padding(.vertical, PoirotTheme.Spacing.xs)
                         }
                         .buttonStyle(.plain)
+                        .help(showAllLines ? "Show less" : "Show all \(contentLines.count) lines")
                     }
                 }
                 .background(PoirotTheme.Colors.bgCode)
@@ -935,7 +940,8 @@ private struct BubbleActionButtons: View {
             BubbleIconButton(
                 icon: isFormatted ? "doc.plaintext" : "doc.richtext",
                 isActive: isFormatted,
-                activeColor: PoirotTheme.Colors.accent
+                activeColor: PoirotTheme.Colors.accent,
+                help: isFormatted ? "Show plain text" : "Show formatted"
             ) {
                 isFormatted.toggle()
             }
@@ -962,7 +968,8 @@ private struct BubbleActionButtons: View {
             BubbleIconButton(
                 icon: copied ? "checkmark" : "doc.on.doc",
                 isActive: copied,
-                activeColor: PoirotTheme.Colors.green
+                activeColor: PoirotTheme.Colors.green,
+                help: "Copy text"
             ) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(text, forType: .string)

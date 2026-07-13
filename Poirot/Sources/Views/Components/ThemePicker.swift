@@ -66,6 +66,7 @@ private struct ThemeOption: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(theme.label)
     }
 }
 
