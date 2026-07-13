@@ -25,6 +25,7 @@ struct ConfigFilterField: View {
                         .foregroundStyle(PoirotTheme.Colors.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .help("Clear filter")
             }
         }
         .padding(.horizontal, PoirotTheme.Spacing.md)

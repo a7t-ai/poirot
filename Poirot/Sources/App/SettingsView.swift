@@ -155,6 +155,7 @@ private struct GeneralSettingsView: View {
                     Button("Browse\u{2026}") {
                         browseForCLI()
                     }
+                    .help("Browse for the CLI executable")
                 }
             }
             Spacer()
@@ -265,13 +266,16 @@ private struct AppearanceSettingsView: View {
                     Button { appState.decreaseFontScale() } label: {
                         Image(systemName: "minus")
                     }
+                    .help("Decrease font size")
                     Text("\(Int(round(appState.fontScale * 100)))%")
                         .monospacedDigit()
                         .frame(width: 44, alignment: .center)
                     Button { appState.increaseFontScale() } label: {
                         Image(systemName: "plus")
                     }
+                    .help("Increase font size")
                     Button("Reset") { appState.resetFontScale() }
+                        .help("Reset font size to 100%")
                         .disabled(appState.fontScale == 1.0)
                 }
             }

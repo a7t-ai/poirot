@@ -79,6 +79,7 @@ struct SessionToolbarActions: View {
             )
             .contentTransition(.symbolEffect(.replace))
         }
+        .help("Copy resume command")
         .animation(.easeInOut(duration: 0.2), value: resumeTapped)
 
         Button {

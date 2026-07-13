@@ -520,6 +520,7 @@ private struct SessionTodoCard: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(isExpanded ? "Collapse todos" : "Expand todos")
     }
 
     private var goToSessionButton: some View {

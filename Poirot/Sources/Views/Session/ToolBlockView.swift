@@ -130,6 +130,7 @@ struct ToolBlockView: View {
                 .background(PoirotTheme.Colors.bgElevated)
             }
             .buttonStyle(.plain)
+            .help(isExpanded ? "Collapse" : "Expand")
 
             if isExpanded {
                 Divider().opacity(0.3)
@@ -175,6 +176,7 @@ struct ToolBlockView: View {
                                     .padding(.vertical, PoirotTheme.Spacing.xs)
                             }
                             .buttonStyle(.plain)
+                            .help(showAllLines ? "Show less" : "Show all \(contentLines.count) lines")
                         }
                     }
                     .background(PoirotTheme.Colors.bgCode)
@@ -334,6 +336,7 @@ struct ToolBlockView: View {
                 )
         }
         .buttonStyle(.plain)
+        .help("Copy content")
         .animation(.easeInOut(duration: 0.2), value: copied)
     }
 

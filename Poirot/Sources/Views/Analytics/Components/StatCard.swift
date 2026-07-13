@@ -73,6 +73,7 @@ private struct InfoTooltipButton: View {
                 .foregroundStyle(PoirotTheme.Colors.textTertiary)
         }
         .buttonStyle(.plain)
+        .help("More info")
         .popover(isPresented: $isPresented, arrowEdge: .top) {
             Text(text)
                 .font(PoirotTheme.Typography.small)

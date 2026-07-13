@@ -79,9 +79,11 @@ struct SubAgentFormView: View {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
+                    .help("Cancel")
                 Button(isEditing ? "Save" : "Create") { save() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!isValid)
+                    .help(isEditing ? "Save agent" : "Create agent")
             }
             .padding(PoirotTheme.Spacing.lg)
         }

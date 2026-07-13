@@ -63,6 +63,7 @@ struct SessionFacetsCard: View {
             .padding(.vertical, PoirotTheme.Spacing.md)
         }
         .buttonStyle(.plain)
+        .help(isExpanded ? "Collapse AI summary" : "Expand AI summary")
     }
 
     // MARK: - Expanded Content

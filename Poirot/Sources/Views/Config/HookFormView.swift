@@ -194,12 +194,14 @@ struct HookFormView: View {
         HStack {
             Button("Cancel") { onCancel() }
                 .keyboardShortcut(.cancelAction)
+                .help("Cancel")
 
             Spacer()
 
             Button(isEditing ? "Save" : "Create") { save() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!isValid)
+                .help(isEditing ? "Save hook" : "Create hook")
         }
         .padding(.horizontal, PoirotTheme.Spacing.xl)
         .padding(.vertical, PoirotTheme.Spacing.md)

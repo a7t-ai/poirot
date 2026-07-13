@@ -47,6 +47,7 @@ struct PoirotApp: App {
                 Button("About Poirot") {
                     openWindow(id: "about")
                 }
+                .help("Open the About window")
 
                 Divider()
 
@@ -74,24 +75,30 @@ struct PoirotApp: App {
                         }
                     }
                 }
+                .help("Check for updates")
             }
             CommandGroup(after: .textFormatting) {
                 Button("Increase Font Size") { appState.increaseFontScale() }
                     .keyboardShortcut("+", modifiers: .command)
+                    .help("Increase font size")
                 Button("Decrease Font Size") { appState.decreaseFontScale() }
                     .keyboardShortcut("-", modifiers: .command)
+                    .help("Decrease font size")
                 Button("Reset Font Size") { appState.resetFontScale() }
                     .keyboardShortcut("0", modifiers: .command)
+                    .help("Reset font size")
             }
             CommandGroup(replacing: .help) {
                 Button("Poirot Help") {
                     openWindow(id: "help")
                 }
                 .keyboardShortcut("?", modifiers: .command)
+                .help("Open Poirot Help")
 
                 Button("Keyboard Shortcuts") {
                     appState.isShortcutHelpPresented = true
                 }
+                .help("Show keyboard shortcuts")
             }
         }
 

@@ -45,6 +45,7 @@ struct SystemContentView: View {
                 )
             }
             .buttonStyle(.plain)
+            .help(isExpanded ? "Collapse system context" : "Expand system context")
             .onAppear {
                 isExpanded = UserDefaults.standard.bool(forKey: "autoExpandBlocks")
             }

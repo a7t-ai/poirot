@@ -302,6 +302,7 @@ struct MCPSetupWizardView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help("Configure a custom server")
     }
 
     private func catalogRow(_ entry: MCPCatalogEntry) -> some View {
@@ -358,6 +359,7 @@ struct MCPSetupWizardView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help("Configure \(entry.name)")
     }
 
     // MARK: - Step 2: Configuration
@@ -584,10 +586,12 @@ struct MCPSetupWizardView: View {
                         step = WizardStep(rawValue: step.rawValue - 1) ?? .selectServer
                     }
                 }
+                .help("Go back")
             }
 
             Button("Cancel") { dismiss() }
                 .keyboardShortcut(.cancelAction)
+                .help("Cancel")
 
             Spacer()
 
@@ -602,11 +606,13 @@ struct MCPSetupWizardView: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!isConfigValid)
+                .help("Preview configuration")
             case .preview:
                 Button(isEditing ? "Save" : "Add Server") {
                     saveServer()
                 }
                 .keyboardShortcut(.defaultAction)
+                .help(isEditing ? "Save server" : "Add server")
             }
         }
         .padding(.horizontal, PoirotTheme.Spacing.xl)

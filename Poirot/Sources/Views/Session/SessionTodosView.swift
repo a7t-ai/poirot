@@ -72,6 +72,7 @@ struct SessionTodosView: View {
             .padding(.vertical, PoirotTheme.Spacing.md)
         }
         .buttonStyle(.plain)
+        .help(isExpanded ? "Collapse todos" : "Expand todos")
     }
 
     // MARK: - Status Summary

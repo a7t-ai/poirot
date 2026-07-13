@@ -143,6 +143,7 @@ struct UsagePlaceholderCard: View {
             if let action {
                 Button(action.title, action: action.handler)
                     .buttonStyle(.borderless)
+                    .help(action.title)
                     .font(PoirotTheme.Typography.captionMedium)
                     .foregroundStyle(PoirotTheme.Colors.accent)
             }
@@ -203,6 +204,7 @@ struct UsageOptInCard: View {
                     .font(PoirotTheme.Typography.captionMedium)
             }
             .buttonStyle(.borderedProminent)
+            .help(actionTitle)
             .tint(PoirotTheme.Colors.accent)
 
             UsageDisclaimer()

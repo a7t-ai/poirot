@@ -56,6 +56,7 @@ struct HelpView: View {
                         .font(PoirotTheme.Typography.caption)
                 }
                 .buttonStyle(.plain)
+                .help("Show all keyboard shortcuts")
                 .foregroundStyle(PoirotTheme.Colors.accent)
             }
 

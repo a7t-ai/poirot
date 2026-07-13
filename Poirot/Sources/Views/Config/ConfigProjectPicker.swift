@@ -28,6 +28,7 @@ struct ConfigProjectPicker: View {
                         .foregroundStyle(PoirotTheme.Colors.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .help("Clear project")
             } else {
                 Text("No project selected")
                     .font(PoirotTheme.Typography.caption)
@@ -44,6 +45,7 @@ struct ConfigProjectPicker: View {
                     .foregroundStyle(PoirotTheme.Colors.textSecondary)
             }
             .buttonStyle(.plain)
+            .help("Choose project folder")
         }
         .padding(.horizontal, PoirotTheme.Spacing.md)
         .padding(.vertical, PoirotTheme.Spacing.sm)

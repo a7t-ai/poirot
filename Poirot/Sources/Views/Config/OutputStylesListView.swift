@@ -291,6 +291,7 @@ private struct OutputStyleCard: View {
             .cardChrome(isHovered: isHovered)
         }
         .buttonStyle(.plain)
+        .help("Open output style")
         .onHover { isHovered = $0 }
     }
 }
