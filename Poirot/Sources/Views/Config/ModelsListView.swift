@@ -15,12 +15,19 @@ struct ModelsListView: View {
     @State
     private var filterQuery = ""
 
-    private var filteredModels: [String] {
+    /// Curated current models plus any model discovered in the loaded sessions. Rebuilt from the
+    /// catalog so newly-used models appear without a hardcoded list going stale.
+    private var allModels: [ClaudeModelInfo] {
+        let discovered = appState.projects.flatMap(\.sessions).compactMap(\.model)
+        return ClaudeModelCatalog.models(discoveredIds: discovered)
+    }
+
+    private var filteredModels: [ClaudeModelInfo] {
         let q = filterQuery.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return provider.supportedModels }
-        return provider.supportedModels
-            .compactMap { model -> (String, Int)? in
-                guard let m = HighlightedText.fuzzyMatch(model, query: q) else { return nil }
+        guard !q.isEmpty else { return allModels }
+        return allModels
+            .compactMap { model -> (ClaudeModelInfo, Int)? in
+                guard let m = HighlightedText.fuzzyMatch(model.displayName, query: q) else { return nil }
                 return (model, m.score)
             }
             .sorted { $0.1 > $1.1 }
@@ -31,7 +38,7 @@ struct ModelsListView: View {
         VStack(spacing: 0) {
             ConfigScreenHeader(
                 item: item,
-                dynamicCount: "\(provider.supportedModels.count) \(provider.supportedModels.count == 1 ? "model" : "models")"
+                dynamicCount: "\(allModels.count) \(allModels.count == 1 ? "model" : "models")"
             )
 
             if filteredModels.isEmpty, !filterQuery.isEmpty {
@@ -81,13 +88,13 @@ struct ModelsListView: View {
                         LazyVStack(spacing: PoirotTheme.Spacing.lg) {
                             ForEach(modelsForColumn(column), id: \.element) { index, model in
                                 ModelCard(
-                                    name: model,
+                                    info: model,
                                     filterQuery: filterQuery,
-                                    isDefault: model == (currentDefault ?? provider.defaultModelName),
-                                    isProjectDefault: model == projectModel,
+                                    isDefault: model.displayName == (currentDefault ?? provider.defaultModelName),
+                                    isProjectDefault: model.displayName == projectModel,
                                     hasProject: appState.configProjectPath != nil,
-                                    onSetDefault: { setDefault(model) },
-                                    onSetProjectDefault: { setProjectDefault(model) },
+                                    onSetDefault: { setDefault(model.displayName) },
+                                    onSetProjectDefault: { setProjectDefault(model.displayName) },
                                     onClearProjectDefault: { clearProjectDefault() }
                                 )
                                 .shimmerReveal(
@@ -107,7 +114,7 @@ struct ModelsListView: View {
         .scrollIndicators(.never)
     }
 
-    private func modelsForColumn(_ column: Int) -> [(offset: Int, element: String)] {
+    private func modelsForColumn(_ column: Int) -> [(offset: Int, element: ClaudeModelInfo)] {
         Array(filteredModels.enumerated()).filter { $0.offset % 2 == column }
     }
 
@@ -119,13 +126,13 @@ struct ModelsListView: View {
                 LazyVStack(spacing: PoirotTheme.Spacing.md) {
                     ForEach(Array(filteredModels.enumerated()), id: \.element) { index, model in
                         ModelCard(
-                            name: model,
+                            info: model,
                             filterQuery: filterQuery,
-                            isDefault: model == (currentDefault ?? provider.defaultModelName),
-                            isProjectDefault: model == projectModel,
+                            isDefault: model.displayName == (currentDefault ?? provider.defaultModelName),
+                            isProjectDefault: model.displayName == projectModel,
                             hasProject: appState.configProjectPath != nil,
-                            onSetDefault: { setDefault(model) },
-                            onSetProjectDefault: { setProjectDefault(model) },
+                            onSetDefault: { setDefault(model.displayName) },
+                            onSetProjectDefault: { setProjectDefault(model.displayName) },
                             onClearProjectDefault: { clearProjectDefault() }
                         )
                         .shimmerReveal(
@@ -224,7 +231,7 @@ struct ModelsListView: View {
 // MARK: - Model Card
 
 private struct ModelCard: View {
-    let name: String
+    let info: ClaudeModelInfo
     var filterQuery: String = ""
     let isDefault: Bool
     let isProjectDefault: Bool
@@ -235,36 +242,10 @@ private struct ModelCard: View {
     @State
     private var isHovered = false
 
-    private var modelDescription: String {
-        switch name {
-        case "Opus 4":
-            "Most capable model for complex reasoning, analysis, and multi-step tasks"
-        case "Sonnet 4":
-            "Balanced performance for everyday coding and conversation"
-        case "Haiku 3.5":
-            "Fastest model for quick responses and lightweight tasks"
-        default:
-            ""
-        }
-    }
-
-    private var modelStrengths: [String] {
-        switch name {
-        case "Opus 4":
-            ["Complex multi-step reasoning", "Large codebase analysis", "Architecture design", "Nuanced debugging"]
-        case "Sonnet 4":
-            ["Fast interactive coding", "Code generation", "Refactoring", "Everyday tasks"]
-        case "Haiku 3.5":
-            ["Fastest response time", "Simple lookups", "Quick edits", "Low-latency workflows"]
-        default:
-            []
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: PoirotTheme.Spacing.sm) {
             HStack(spacing: PoirotTheme.Spacing.sm) {
-                Text(HighlightedText.fuzzyAttributedString(name, query: filterQuery))
+                Text(HighlightedText.fuzzyAttributedString(info.displayName, query: filterQuery))
                     .font(PoirotTheme.Typography.bodyMedium)
                     .foregroundStyle(PoirotTheme.Colors.textPrimary)
 
@@ -297,16 +278,16 @@ private struct ModelCard: View {
                 Spacer()
             }
 
-            if !modelDescription.isEmpty {
-                Text(modelDescription)
+            if !info.description.isEmpty {
+                Text(info.description)
                     .font(PoirotTheme.Typography.caption)
                     .foregroundStyle(PoirotTheme.Colors.textSecondary)
                     .multilineTextAlignment(.leading)
             }
 
-            if !modelStrengths.isEmpty {
+            if !info.strengths.isEmpty {
                 VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xs) {
-                    ForEach(modelStrengths, id: \.self) { strength in
+                    ForEach(info.strengths, id: \.self) { strength in
                         HStack(spacing: PoirotTheme.Spacing.sm) {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(PoirotTheme.Typography.micro)

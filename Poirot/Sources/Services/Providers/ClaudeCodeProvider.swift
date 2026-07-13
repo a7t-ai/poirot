@@ -10,8 +10,10 @@ struct ClaudeCodeProvider: ProviderDescribing {
     let projectsPath = "~/.claude/projects"
     let cliPath = "/usr/local/bin/claude"
     let cliLabel = String(localized: "Claude Code Path")
-    let defaultModelName = "Opus 4"
-    let supportedModels = ["Opus 4", "Sonnet 4", "Haiku 3.5"]
+    let defaultModelName = ClaudeModelCatalog.defaultModelName
+    /// Baseline current lineup. The Models screen extends this with models discovered in your
+    /// sessions; see `ClaudeModelCatalog`.
+    var supportedModels: [String] { ClaudeModelCatalog.curatedNames }
 
     let toolDefinitions: [String: ToolDefinition] = [
         "Read": ToolDefinition(displayName: String(localized: "Read"), icon: "doc.text"),
@@ -65,7 +67,7 @@ struct ClaudeCodeProvider: ProviderDescribing {
             icon: "brain.fill",
             iconColor: PoirotTheme.Colors.purple,
             title: String(localized: "Models"),
-            count: "Opus 4",
+            count: ClaudeModelCatalog.defaultModelName,
             description: String(localized: "Default and per-project model preferences"),
             requiredCapability: .models
         ),
