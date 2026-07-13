@@ -124,6 +124,7 @@
 		806DAEE620C83C166FE0FB8B /* SearchOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D04D892576D61E453579BC /* SearchOverlayView.swift */; };
 		82406F55ADE53A63C6B028E7 /* ContributionHeatmap.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9DF06F9E25D64499D24F01D /* ContributionHeatmap.swift */; };
 		82F43D48A04EE92E2D4EBA97 /* AppStateSessionLoadingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC94BCAB321FFC016358C440 /* AppStateSessionLoadingTests.swift */; };
+		83C3B4B8BF1E3317151455B4 /* ClaudeModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0ED5E6349C52B57C4D64229 /* ClaudeModelCatalog.swift */; };
 		84912EEDE77CC32FD9F49152 /* SessionXMLStrippingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFA5A7B55EFC02EA5F35FA62 /* SessionXMLStrippingTests.swift */; };
 		84BC06AE4710DF629F88AA4C /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A63E328561222E130E2DDCA /* AppState.swift */; };
 		86685FFB9A926367B757C7D0 /* EditorLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49B5E248D52AE2D665186065 /* EditorLauncher.swift */; };
@@ -164,6 +165,7 @@
 		A90884D03F7FCB12F9878672 /* ScreenshotTests_Usage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1707BEA47B5FE47B22DAF443 /* ScreenshotTests_Usage.swift */; };
 		A9D3ACBECA5427C8843C6315 /* AnalyticsDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9507986B99C9DFCFDDA3849 /* AnalyticsDashboardView.swift */; };
 		A9DEEF92D0B0D4B7EBAAB63F /* ClaudeCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D324CA26A994C09E27E8CD0 /* ClaudeCredentials.swift */; };
+		AB5D428A2DA4248E89D8201B /* ClaudeModelCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D4BA557E8665179BB0D487 /* ClaudeModelCatalogTests.swift */; };
 		ACEE72F022EA15935A920B54 /* AnalyticsSnapshotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDF86AD00BA8FFAC050DD763 /* AnalyticsSnapshotView.swift */; };
 		AE65BC7796614D7071AFAA83 /* ProjectSortingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB669E6E758B390FBEE0F5C /* ProjectSortingTests.swift */; };
 		AFAB254385F5159CC1251A7D /* ToastOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF446AEF7C49EE8EAB77A84B /* ToastOverlay.swift */; };
@@ -294,6 +296,7 @@
 		2398AF9EC1EE0C8BA32378CD /* MCPServersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServersListView.swift; sourceTree = "<group>"; };
 		24F9810F9C17BBB0F14C2F45 /* OutputStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputStyle.swift; sourceTree = "<group>"; };
 		26B9CD4BBB58483858519DD3 /* ScreenshotTests_EditDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests_EditDiff.swift; sourceTree = "<group>"; };
+		29D4BA557E8665179BB0D487 /* ClaudeModelCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeModelCatalogTests.swift; sourceTree = "<group>"; };
 		2CE7A7223D10D8EA0A97C20D /* ClaudeUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageTests.swift; sourceTree = "<group>"; };
 		2D324CA26A994C09E27E8CD0 /* ClaudeCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeCredentials.swift; sourceTree = "<group>"; };
 		2D48378C53A7352CBE811B97 /* ClaudeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSettings.swift; sourceTree = "<group>"; };
@@ -457,6 +460,7 @@
 		DD4F57D1DA2A3D3742A92544 /* ScreenshotTests_Facets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests_Facets.swift; sourceTree = "<group>"; };
 		DE1B5CFE2D4BBFF20308C966 /* ScreenshotTests_Todos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests_Todos.swift; sourceTree = "<group>"; };
 		DE3AC4EEED07D87A20BA1D6A /* ThinkingBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingBlockView.swift; sourceTree = "<group>"; };
+		E0ED5E6349C52B57C4D64229 /* ClaudeModelCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeModelCatalog.swift; sourceTree = "<group>"; };
 		E3FDE64043B69FBEE45996BB /* StatsCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsCache.swift; sourceTree = "<group>"; };
 		E4F2C0308705DE4698DA57E1 /* ToolBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolBlockView.swift; sourceTree = "<group>"; };
 		E56DB0C65DC1F7A2CC463EAD /* AnalyticsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsViewModelTests.swift; sourceTree = "<group>"; };
@@ -615,6 +619,7 @@
 		1D544C9DA5F2B519742B2B60 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				E0ED5E6349C52B57C4D64229 /* ClaudeModelCatalog.swift */,
 				FB118037BF6C6168489D7E8A /* ContextUsage.swift */,
 				F696E190ACB35B6D80853CBB /* DebugLogEntry.swift */,
 				002E3E00599D38883771DDAA /* FileVersion.swift */,
@@ -771,6 +776,7 @@
 			isa = PBXGroup;
 			children = (
 				9818FA0A1812D1C79532263A /* ClaudeCredentialsTests.swift */,
+				29D4BA557E8665179BB0D487 /* ClaudeModelCatalogTests.swift */,
 				2CE7A7223D10D8EA0A97C20D /* ClaudeUsageTests.swift */,
 				9FAD871E07B902D82EB3B0E7 /* ContextUsageTests.swift */,
 				9F1020D92641A5D80E50F44D /* DebugLogEntryTests.swift */,
@@ -1250,6 +1256,7 @@
 				6AEA8D586B62BC7963DB91FE /* ClaudeConfigLoader.swift in Sources */,
 				A9DEEF92D0B0D4B7EBAAB63F /* ClaudeCredentials.swift in Sources */,
 				EB0AACBBF47782BE2AA29FFD /* ClaudeCredentialsReader.swift in Sources */,
+				83C3B4B8BF1E3317151455B4 /* ClaudeModelCatalog.swift in Sources */,
 				72FCF17A2D872F565F4EE2A7 /* ClaudePlugin.swift in Sources */,
 				8C5E9837DF097CF02C1574E8 /* ClaudeSettings.swift in Sources */,
 				8A76B46D06FDB37403D12CAE /* ClaudeSkill.swift in Sources */,
@@ -1400,6 +1407,7 @@
 				D94866039BC8291A7EE450E0 /* ClaudeCodeProviderTests.swift in Sources */,
 				5BA9D35E649A81BA81B1AAD8 /* ClaudeConfigLoaderMCPTests.swift in Sources */,
 				8F90904E938E5E931C3F8726 /* ClaudeCredentialsTests.swift in Sources */,
+				AB5D428A2DA4248E89D8201B /* ClaudeModelCatalogTests.swift in Sources */,
 				EB642D4A993F1B011E3AB659 /* ClaudeUsageTests.swift in Sources */,
 				58488090E2994C9F4D567DBC /* ColorThemeTests.swift in Sources */,
 				15DD32AFC9045E423E70DFA4 /* ContextUsageTests.swift in Sources */,
