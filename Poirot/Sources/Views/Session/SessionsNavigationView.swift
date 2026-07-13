@@ -78,7 +78,7 @@ struct SessionsNavigationView: View {
             } else if filteredProjects.isEmpty {
                 emptySearchState
             } else {
-                ScrollViewReader { proxy in
+                ScrollViewReader { _ in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(filteredProjects) { project in
