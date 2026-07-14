@@ -182,10 +182,6 @@ private struct GeneralSettingsView: View {
 private struct AppearanceSettingsView: View {
     @Environment(AppState.self)
     private var appState
-    @AppStorage("appearanceMode")
-    private var appearanceMode = AppearanceMode.auto.rawValue
-    @AppStorage("accentColor")
-    private var accentColorRaw = AccentColor.golden.rawValue
     @AppStorage("colorTheme")
     private var colorThemeRaw = ColorTheme.default.rawValue
     @AppStorage("showAnimations")
@@ -197,26 +193,8 @@ private struct AppearanceSettingsView: View {
             set: { newValue in
                 colorThemeRaw = newValue.rawValue
                 ColorThemeStorage.current = newValue
-            }
-        )
-    }
-
-    private var appearanceModeBinding: Binding<AppearanceMode> {
-        Binding(
-            get: { AppearanceMode(rawValue: appearanceMode) ?? .auto },
-            set: { newValue in
-                appearanceMode = newValue.rawValue
+                // The theme drives the window appearance (dark theme -> dark chrome).
                 NSApp.appearance = newValue.appearance
-            }
-        )
-    }
-
-    private var accentColorBinding: Binding<AccentColor> {
-        Binding(
-            get: { AccentColor(rawValue: accentColorRaw) ?? .golden },
-            set: { newValue in
-                accentColorRaw = newValue.rawValue
-                AccentColorStorage.current = newValue
             }
         )
     }
@@ -226,16 +204,8 @@ private struct AppearanceSettingsView: View {
         var appState = appState
 
         VStack(spacing: 0) {
-            settingsRow(alignment: .top) {
-                Text("Appearance:")
-            } control: {
-                AppearancePicker(selection: appearanceModeBinding)
-            }
-
-            settingsDivider
-
-            // Inlined (not settingsRow) so the theme strip fills the remaining width and scrolls,
-            // rather than competing with a trailing Spacer.
+            // The theme is now the single look control — it sets colors, accent, and light/dark
+            // chrome. Inlined (not settingsRow) so the strip fills the row width and scrolls.
             HStack(alignment: .top, spacing: 12) {
                 Text("Theme:")
                     .frame(width: settingsLabelWidth, alignment: .trailing)
@@ -243,14 +213,6 @@ private struct AppearanceSettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 8)
-
-            settingsDivider
-
-            settingsRow {
-                Text("Accent Color:")
-            } control: {
-                AccentColorPicker(selection: accentColorBinding)
-            }
 
             settingsDivider
 
