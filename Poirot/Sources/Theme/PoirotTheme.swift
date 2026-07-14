@@ -411,9 +411,12 @@ enum PoirotTheme {
         static var bgElevated: Color { color(for: palette.bgElevated) }
         static var bgCode: Color { color(for: palette.bgCode) }
 
-        static var textPrimary: Color { color(for: palette.textPrimary) }
-        static var textSecondary: Color { color(for: palette.textSecondary) }
-        static var textTertiary: Color { color(for: palette.textTertiary) }
+        // Native, appearance-adaptive label colors. Because the selected theme sets the window
+        // appearance (a light theme -> light chrome), these resolve to a readable value on every
+        // theme automatically — no per-theme text color to keep in sync, and no baked-color drift.
+        static var textPrimary: Color { Color(nsColor: .labelColor) }
+        static var textSecondary: Color { Color(nsColor: .secondaryLabelColor) }
+        static var textTertiary: Color { Color(nsColor: .tertiaryLabelColor) }
 
         static var border: Color { color(for: palette.border) }
         static var borderSubtle: Color { color(for: palette.borderSubtle) }

@@ -3,8 +3,12 @@ import HighlightSwift
 import SwiftUI
 
 extension Theme {
+    // Computed (not a cached `static let`) so it always reflects the ACTIVE theme's colors. As a
+    // static let it baked whichever theme was current at first render, leaving markdown text stuck
+    // on that theme's color — e.g. near-white text on a light theme after switching.
     @MainActor
-    static let poirot = Theme()
+    static var poirot: Theme {
+        Theme()
         .text {
             ForegroundColor(PoirotTheme.Colors.textPrimary)
             FontSize(14 * PoirotTheme.Typography.scale)
@@ -84,6 +88,7 @@ extension Theme {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 10)
         }
+    }
 }
 
 // MARK: - Code Block with Syntax Highlighting
