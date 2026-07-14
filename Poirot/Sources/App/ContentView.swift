@@ -20,8 +20,6 @@ struct ContentView: View {
     private var facetsWatcher: FileWatcher?
     @AppStorage("hasCompletedOnboarding")
     private var hasCompletedOnboarding = false
-    @AppStorage("accentColor")
-    private var accentColorRaw = AccentColor.golden.rawValue
     @AppStorage("colorTheme")
     private var colorThemeRaw = ColorTheme.default.rawValue
     private var sidebarNavItems: [NavigationItem] {
@@ -62,11 +60,6 @@ struct ContentView: View {
                     ColorThemeStorage.current = theme
                 }
             }
-            .onChange(of: accentColorRaw) {
-                if let color = AccentColor(rawValue: accentColorRaw) {
-                    AccentColorStorage.current = color
-                }
-            }
             .keyboardNavigation(
                 sidebarItemCount: sidebarNavItems.count,
                 onSidebarActivate: { activateSidebarItem() }
@@ -102,7 +95,7 @@ struct ContentView: View {
             toolbarContextual
         }
         .frame(minWidth: 900, minHeight: 600)
-        .id("\(appState.fontScale)-\(colorThemeRaw)-\(accentColorRaw)")
+        .id("\(appState.fontScale)-\(colorThemeRaw)")
         .overlay(alignment: .top) {
             ToastOverlay()
         }

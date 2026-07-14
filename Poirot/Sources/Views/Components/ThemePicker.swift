@@ -6,8 +6,12 @@ struct ThemePicker: View {
     @State
     private var preHoverSelection: ColorTheme?
 
+    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 12)]
+
     var body: some View {
-        HStack(spacing: 16) {
+        // Wrapping grid so every theme is visible at a glance in a few rows, instead of a long
+        // single-row scroll strip. Columns adapt to the available width.
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
             ForEach(ColorTheme.allCases, id: \.self) { theme in
                 ThemeOption(
                     theme: theme,
@@ -26,6 +30,7 @@ struct ThemePicker: View {
                 }
             }
         }
+        .padding(.vertical, 4)
         .onHover { hovering in
             if !hovering, let original = preHoverSelection {
                 ColorThemeStorage.current = original
@@ -46,7 +51,8 @@ private struct ThemeOption: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 ThemeThumbnail(palette: theme.palette)
-                    .frame(width: 96, height: 62)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 58)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)

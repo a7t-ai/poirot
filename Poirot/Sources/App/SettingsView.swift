@@ -29,7 +29,7 @@ struct SettingsView: View {
                     Label("Menu Bar", systemImage: "menubar.rectangle")
                 }
         }
-        .frame(width: 560, height: 360)
+        .frame(width: 620, height: 500)
     }
 }
 
@@ -182,10 +182,6 @@ private struct GeneralSettingsView: View {
 private struct AppearanceSettingsView: View {
     @Environment(AppState.self)
     private var appState
-    @AppStorage("appearanceMode")
-    private var appearanceMode = AppearanceMode.auto.rawValue
-    @AppStorage("accentColor")
-    private var accentColorRaw = AccentColor.golden.rawValue
     @AppStorage("colorTheme")
     private var colorThemeRaw = ColorTheme.default.rawValue
     @AppStorage("showAnimations")
@@ -197,26 +193,8 @@ private struct AppearanceSettingsView: View {
             set: { newValue in
                 colorThemeRaw = newValue.rawValue
                 ColorThemeStorage.current = newValue
-            }
-        )
-    }
-
-    private var appearanceModeBinding: Binding<AppearanceMode> {
-        Binding(
-            get: { AppearanceMode(rawValue: appearanceMode) ?? .auto },
-            set: { newValue in
-                appearanceMode = newValue.rawValue
+                // The theme drives the window appearance (dark theme -> dark chrome).
                 NSApp.appearance = newValue.appearance
-            }
-        )
-    }
-
-    private var accentColorBinding: Binding<AccentColor> {
-        Binding(
-            get: { AccentColor(rawValue: accentColorRaw) ?? .golden },
-            set: { newValue in
-                accentColorRaw = newValue.rawValue
-                AccentColorStorage.current = newValue
             }
         )
     }
@@ -225,65 +203,52 @@ private struct AppearanceSettingsView: View {
         @Bindable
         var appState = appState
 
-        VStack(spacing: 0) {
-            settingsRow(alignment: .top) {
-                Text("Appearance:")
-            } control: {
-                AppearancePicker(selection: appearanceModeBinding)
-            }
+        ScrollView {
+            VStack(spacing: 0) {
+                // Theme is the single look control — it sets colors, accent, and light/dark chrome.
+                // Shown full-width as a wrapping grid of every theme.
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Theme")
+                    ThemePicker(selection: colorThemeBinding)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 8)
 
-            settingsDivider
+                settingsDivider
 
-            settingsRow(alignment: .top) {
-                Text("Theme:")
-            } control: {
-                ThemePicker(selection: colorThemeBinding)
-            }
+                settingsRow {
+                    Text("Animations:")
+                } control: {
+                    Toggle("Message streaming animations", isOn: $showAnimations)
+                        .labelsHidden()
+                }
 
-            settingsDivider
+                settingsDivider
 
-            settingsRow {
-                Text("Accent Color:")
-            } control: {
-                AccentColorPicker(selection: accentColorBinding)
-            }
-
-            settingsDivider
-
-            settingsRow {
-                Text("Animations:")
-            } control: {
-                Toggle("Message streaming animations", isOn: $showAnimations)
-                    .labelsHidden()
-            }
-
-            settingsDivider
-
-            settingsRow {
-                Text("Font Size:")
-            } control: {
-                HStack(spacing: 8) {
-                    Button { appState.decreaseFontScale() } label: {
-                        Image(systemName: "minus")
+                settingsRow {
+                    Text("Font Size:")
+                } control: {
+                    HStack(spacing: 8) {
+                        Button { appState.decreaseFontScale() } label: {
+                            Image(systemName: "minus")
+                        }
+                        .help("Decrease font size")
+                        Text("\(Int(round(appState.fontScale * 100)))%")
+                            .monospacedDigit()
+                            .frame(width: 44, alignment: .center)
+                        Button { appState.increaseFontScale() } label: {
+                            Image(systemName: "plus")
+                        }
+                        .help("Increase font size")
+                        Button("Reset") { appState.resetFontScale() }
+                            .help("Reset font size to 100%")
+                            .disabled(appState.fontScale == 1.0)
                     }
-                    .help("Decrease font size")
-                    Text("\(Int(round(appState.fontScale * 100)))%")
-                        .monospacedDigit()
-                        .frame(width: 44, alignment: .center)
-                    Button { appState.increaseFontScale() } label: {
-                        Image(systemName: "plus")
-                    }
-                    .help("Increase font size")
-                    Button("Reset") { appState.resetFontScale() }
-                        .help("Reset font size to 100%")
-                        .disabled(appState.fontScale == 1.0)
                 }
             }
-
-            Spacer()
+            .padding(.vertical, 20)
+            .padding(.horizontal, 32)
         }
-        .padding(.vertical, 20)
-        .padding(.horizontal, 32)
     }
 }
 

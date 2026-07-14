@@ -4,8 +4,9 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let mode = AppearanceMode(rawValue: UserDefaults.standard.string(forKey: "appearanceMode") ?? "") ?? .auto
-        NSApp.appearance = mode.appearance
+        // The selected theme drives the window appearance (dark theme -> dark chrome). Adaptive
+        // themes return nil and follow the system.
+        NSApp.appearance = ColorThemeStorage.current.appearance
     }
 
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {

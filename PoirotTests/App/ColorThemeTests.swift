@@ -6,14 +6,24 @@ struct ColorThemeTests {
     // MARK: - All Cases
 
     @Test
-    func allCases_hasThreeThemes() {
-        #expect(ColorTheme.allCases.count == 3)
+    func allCases_leadWithOriginalsThenPortedThemes() {
+        #expect(ColorTheme.allCases.count == 20)
+        // Poirot's originals lead the list.
+        #expect(Array(ColorTheme.allCases.prefix(3)) == [.default, .solarized, .highContrast])
+        // A sampling of ported a7t/chat themes are present.
+        #expect(ColorTheme.allCases.contains(.charcoal))
+        #expect(ColorTheme.allCases.contains(.nightshade))
+        #expect(ColorTheme.allCases.contains(.evergreen))
     }
 
     @Test
-    func allCases_orderedCorrectly() {
-        let expected: [ColorTheme] = [.default, .solarized, .highContrast]
-        #expect(ColorTheme.allCases == expected)
+    func isDark_marksFixedThemes_andNilForAdaptiveOriginals() {
+        #expect(ColorTheme.default.isDark == nil)
+        #expect(ColorTheme.solarized.isDark == nil)
+        #expect(ColorTheme.charcoal.isDark == true)
+        #expect(ColorTheme.nightshade.isDark == true)
+        #expect(ColorTheme.white.isDark == false)
+        #expect(ColorTheme.pastel.isDark == false)
     }
 
     // MARK: - Raw Values

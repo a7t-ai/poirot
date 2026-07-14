@@ -5,8 +5,6 @@ struct SidebarView: View {
     private var appState
     @Environment(\.provider)
     private var provider
-    @AppStorage("accentColor")
-    private var accentColorRaw = AccentColor.golden.rawValue
     @AppStorage("colorTheme")
     private var colorThemeRaw = ColorTheme.default.rawValue
     var body: some View {
@@ -14,9 +12,10 @@ struct SidebarView: View {
             navigationItems
             Spacer()
         }
-        .background {
-            Color.clear
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Opaque theme background — was Color.clear, which let the NavigationSplitView's system
+        // sidebar material (and the desktop) show through, making light themes unreadable.
+        .background(PoirotTheme.Colors.bgSidebar)
     }
 
     // MARK: - Navigation
