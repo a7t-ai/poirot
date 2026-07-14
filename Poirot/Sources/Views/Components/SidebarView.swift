@@ -14,9 +14,10 @@ struct SidebarView: View {
             navigationItems
             Spacer()
         }
-        .background {
-            Color.clear
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        // Opaque theme background — was Color.clear, which let the NavigationSplitView's system
+        // sidebar material (and the desktop) show through, making light themes unreadable.
+        .background(PoirotTheme.Colors.bgSidebar)
     }
 
     // MARK: - Navigation
