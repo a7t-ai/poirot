@@ -108,18 +108,49 @@ struct ThemePalette: Sendable, Equatable {
         diffRemoveBg: Token(lightHex: 0xCC0000, darkHex: 0xFF4444, lightOpacity: 0.20, darkOpacity: 0.15),
         diffRemoveText: Token(lightHex: 0xCC0000, darkHex: 0xFF4444)
     )
+
+    /// Ported from a7t.ai's palette (the a7t/chat brand): the "White" theme drives the light
+    /// appearance, "Charcoal" the dark, both on the signature teal accent. a7t/chat couples one
+    /// accent per theme; here the teal lives on the `teal` semantic token — pair this with the
+    /// "a7t Teal" accent for the full look.
+    static let a7t = ThemePalette(
+        bgApp: Token(lightHex: 0xFFFFFF, darkHex: 0x101012),
+        bgSidebar: Token(lightHex: 0xF5F4F1, darkHex: 0x19191C),
+        bgCard: Token(lightHex: 0xF5F4F1, darkHex: 0x19191C),
+        bgCardHover: Token(lightHex: 0xECEBE6, darkHex: 0x212126),
+        bgElevated: Token(lightHex: 0xECEBE6, darkHex: 0x212126),
+        bgCode: Token(lightHex: 0xECEBE6, darkHex: 0x101012),
+        textPrimary: Token(lightHex: 0x0A0F0F, darkHex: 0xECECEC),
+        textSecondary: Token(lightHex: 0x4A5454, darkHex: 0x9B9BA2),
+        textTertiary: Token(lightHex: 0x4A5454, darkHex: 0x9B9BA2, lightOpacity: 0.7, darkOpacity: 0.7),
+        border: Token(lightHex: 0xE3E1DA, darkHex: 0x2B2B30),
+        borderSubtle: Token(lightHex: 0xE3E1DA, darkHex: 0x2B2B30, lightOpacity: 0.5, darkOpacity: 0.5),
+        borderEmphasis: Token(lightHex: 0xD8D5CC, darkHex: 0x3A3A40),
+        green: Token(lightHex: 0x1F8A36, darkHex: 0x32D74B),
+        red: Token(lightHex: 0xC22A21, darkHex: 0xFF453A),
+        blue: Token(lightHex: 0x005ECF, darkHex: 0x0A84FF),
+        orange: Token(lightHex: 0xB86A00, darkHex: 0xFF9F0A),
+        purple: Token(lightHex: 0x7A3FB5, darkHex: 0xAF52DE),
+        teal: Token(lightHex: 0x1F6B6B, darkHex: 0x2D9B9B),
+        diffAddBg: Token(lightHex: 0x1F8A36, darkHex: 0x32D74B, lightOpacity: 0.16, darkOpacity: 0.10),
+        diffAddText: Token(lightHex: 0x166A29, darkHex: 0x32D74B),
+        diffRemoveBg: Token(lightHex: 0xC22A21, darkHex: 0xFF453A, lightOpacity: 0.16, darkOpacity: 0.10),
+        diffRemoveText: Token(lightHex: 0x9B221B, darkHex: 0xFF453A)
+    )
 }
 
 enum ColorTheme: String, CaseIterable, Sendable {
     case `default`
     case solarized
     case highContrast
+    case a7t
 
     var label: String {
         switch self {
         case .default: "Default"
         case .solarized: "Solarized"
         case .highContrast: "High Contrast"
+        case .a7t: "a7t"
         }
     }
 
@@ -128,6 +159,7 @@ enum ColorTheme: String, CaseIterable, Sendable {
         case .default: .default
         case .solarized: .solarized
         case .highContrast: .highContrast
+        case .a7t: .a7t
         }
     }
 }
@@ -155,6 +187,7 @@ enum AccentColor: String, CaseIterable, Sendable {
     case green
     case red
     case teal
+    case a7tTeal
 
     var label: String {
         switch self {
@@ -164,6 +197,7 @@ enum AccentColor: String, CaseIterable, Sendable {
         case .green: "Green"
         case .red: "Red"
         case .teal: "Teal"
+        case .a7tTeal: "a7t Teal"
         }
     }
 
@@ -175,6 +209,7 @@ enum AccentColor: String, CaseIterable, Sendable {
         case .green: 0x1F8A36
         case .red: 0xC22A21
         case .teal: 0x0F8F85
+        case .a7tTeal: 0x1F6B6B
         }
     }
 
@@ -186,6 +221,7 @@ enum AccentColor: String, CaseIterable, Sendable {
         case .green: 0x32D74B
         case .red: 0xFF453A
         case .teal: 0x30D5C8
+        case .a7tTeal: 0x2D9B9B
         }
     }
 
