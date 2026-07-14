@@ -7,29 +7,36 @@ struct ThemePicker: View {
     private var preHoverSelection: ColorTheme?
 
     var body: some View {
-        HStack(spacing: 16) {
-            ForEach(ColorTheme.allCases, id: \.self) { theme in
-                ThemeOption(
-                    theme: theme,
-                    isSelected: selection == theme
-                ) {
-                    preHoverSelection = nil
-                    selection = theme
-                }
-                .onHover { hovering in
-                    if hovering {
-                        if preHoverSelection == nil {
-                            preHoverSelection = selection
+        // Horizontal scroll so the strip holds any number of themes inside the fixed-width
+        // Settings window instead of clipping at the edge.
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                ForEach(ColorTheme.allCases, id: \.self) { theme in
+                    ThemeOption(
+                        theme: theme,
+                        isSelected: selection == theme
+                    ) {
+                        preHoverSelection = nil
+                        selection = theme
+                    }
+                    .onHover { hovering in
+                        if hovering {
+                            if preHoverSelection == nil {
+                                preHoverSelection = selection
+                            }
+                            ColorThemeStorage.current = theme
                         }
-                        ColorThemeStorage.current = theme
                     }
                 }
             }
-        }
-        .onHover { hovering in
-            if !hovering, let original = preHoverSelection {
-                ColorThemeStorage.current = original
-                preHoverSelection = nil
+            // Room for the selection stroke + shadow so the scroll view doesn't clip them.
+            .padding(.vertical, 4)
+            .padding(.horizontal, 2)
+            .onHover { hovering in
+                if !hovering, let original = preHoverSelection {
+                    ColorThemeStorage.current = original
+                    preHoverSelection = nil
+                }
             }
         }
     }

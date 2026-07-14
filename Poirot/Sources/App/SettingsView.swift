@@ -234,11 +234,15 @@ private struct AppearanceSettingsView: View {
 
             settingsDivider
 
-            settingsRow(alignment: .top) {
+            // Inlined (not settingsRow) so the theme strip fills the remaining width and scrolls,
+            // rather than competing with a trailing Spacer.
+            HStack(alignment: .top, spacing: 12) {
                 Text("Theme:")
-            } control: {
+                    .frame(width: settingsLabelWidth, alignment: .trailing)
                 ThemePicker(selection: colorThemeBinding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .padding(.vertical, 8)
 
             settingsDivider
 
