@@ -56,7 +56,13 @@ nonisolated enum ClaudeModelCatalog {
         ),
         ClaudeModelInfo(
             displayName: "Fable 5",
-            description: "Newest addition to the Claude 5 model family."
+            description: "Anthropic's most advanced model for demanding reasoning and long-horizon agentic work.",
+            strengths: [
+                "Ambitious coding projects",
+                "Long-horizon agentic work",
+                "Deep research and analysis",
+                "Document and diagram understanding",
+            ]
         ),
     ]
 
