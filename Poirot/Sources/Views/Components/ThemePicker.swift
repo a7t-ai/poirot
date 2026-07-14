@@ -6,37 +6,35 @@ struct ThemePicker: View {
     @State
     private var preHoverSelection: ColorTheme?
 
+    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 150), spacing: 12)]
+
     var body: some View {
-        // Horizontal scroll so the strip holds any number of themes inside the fixed-width
-        // Settings window instead of clipping at the edge.
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 16) {
-                ForEach(ColorTheme.allCases, id: \.self) { theme in
-                    ThemeOption(
-                        theme: theme,
-                        isSelected: selection == theme
-                    ) {
-                        preHoverSelection = nil
-                        selection = theme
-                    }
-                    .onHover { hovering in
-                        if hovering {
-                            if preHoverSelection == nil {
-                                preHoverSelection = selection
-                            }
-                            ColorThemeStorage.current = theme
+        // Wrapping grid so every theme is visible at a glance in a few rows, instead of a long
+        // single-row scroll strip. Columns adapt to the available width.
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+            ForEach(ColorTheme.allCases, id: \.self) { theme in
+                ThemeOption(
+                    theme: theme,
+                    isSelected: selection == theme
+                ) {
+                    preHoverSelection = nil
+                    selection = theme
+                }
+                .onHover { hovering in
+                    if hovering {
+                        if preHoverSelection == nil {
+                            preHoverSelection = selection
                         }
+                        ColorThemeStorage.current = theme
                     }
                 }
             }
-            // Room for the selection stroke + shadow so the scroll view doesn't clip them.
-            .padding(.vertical, 4)
-            .padding(.horizontal, 2)
-            .onHover { hovering in
-                if !hovering, let original = preHoverSelection {
-                    ColorThemeStorage.current = original
-                    preHoverSelection = nil
-                }
+        }
+        .padding(.vertical, 4)
+        .onHover { hovering in
+            if !hovering, let original = preHoverSelection {
+                ColorThemeStorage.current = original
+                preHoverSelection = nil
             }
         }
     }
@@ -53,7 +51,8 @@ private struct ThemeOption: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 ThemeThumbnail(palette: theme.palette)
-                    .frame(width: 96, height: 62)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 58)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
