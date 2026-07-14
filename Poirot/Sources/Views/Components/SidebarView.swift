@@ -5,8 +5,6 @@ struct SidebarView: View {
     private var appState
     @Environment(\.provider)
     private var provider
-    @AppStorage("accentColor")
-    private var accentColorRaw = AccentColor.golden.rawValue
     @AppStorage("colorTheme")
     private var colorThemeRaw = ColorTheme.default.rawValue
     var body: some View {
