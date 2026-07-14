@@ -12,7 +12,9 @@ enum HighlightedText {
             guard let range = result[searchStart ..< result.endIndex].range(of: query, options: .caseInsensitive)
             else { break }
             result[range].backgroundColor = PoirotTheme.Colors.accent.opacity(0.35)
-            result[range].foregroundColor = .white
+            // Theme-adaptive foreground (was hardcoded .white, unreadable on the pale accent
+            // tint in light mode). textPrimary stays legible on the highlight in every theme.
+            result[range].foregroundColor = PoirotTheme.Colors.textPrimary
             searchStart = range.upperBound
         }
         return result
@@ -142,7 +144,7 @@ enum HighlightedText {
             let attrStart = result.index(result.startIndex, offsetByCharacters: offset)
             let attrEnd = result.index(attrStart, offsetByCharacters: 1)
             result[attrStart ..< attrEnd].backgroundColor = PoirotTheme.Colors.accent.opacity(0.35)
-            result[attrStart ..< attrEnd].foregroundColor = .white
+            result[attrStart ..< attrEnd].foregroundColor = PoirotTheme.Colors.textPrimary
         }
         return result
     }

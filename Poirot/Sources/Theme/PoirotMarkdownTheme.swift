@@ -94,6 +94,9 @@ struct PoirotCodeBlockView: View {
     @State
     private var attributedCode: AttributedString?
 
+    @Environment(\.colorScheme)
+    private var colorScheme
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let language = configuration.language {
@@ -127,22 +130,25 @@ struct PoirotCodeBlockView: View {
             RoundedRectangle(cornerRadius: PoirotTheme.Radius.sm)
                 .stroke(PoirotTheme.Colors.border)
         )
-        .task(id: configuration.content) {
+        .task(id: HighlightRequest(content: configuration.content, isDark: colorScheme == .dark)) {
             await highlight(
                 code: configuration.content,
-                language: configuration.language
+                language: configuration.language,
+                isDark: colorScheme == .dark
             )
         }
     }
 
-    private func highlight(code: String, language: String?) async {
+    private func highlight(code: String, language: String?, isDark: Bool) async {
         guard let lang = language else { return }
 
         do {
             let result = try await PoirotHighlight.shared.request(
                 code,
                 mode: .languageAlias(lang),
-                colors: .dark(.xcode)
+                // Match the syntax palette to the appearance — the dark xcode theme's near-white
+                // tokens were unreadable on the light-mode code background.
+                colors: isDark ? .dark(.xcode) : .light(.xcode)
             )
             attributedCode = result.attributedText
         } catch {
@@ -155,4 +161,11 @@ struct PoirotCodeBlockView: View {
 
 private enum PoirotHighlight {
     static let shared = HighlightSwift.Highlight()
+}
+
+/// Keys the syntax-highlight task on both the code and the appearance, so switching light/dark
+/// re-runs the highlighter with the matching palette.
+private struct HighlightRequest: Hashable {
+    let content: String
+    let isDark: Bool
 }
