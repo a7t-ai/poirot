@@ -42,8 +42,8 @@ targets:
         PRODUCT_NAME: Poirot
         INFOPLIST_KEY_CFBundleDisplayName: Poirot
         INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
-        MARKETING_VERSION: "26.07.3"
-        CURRENT_PROJECT_VERSION: 24
+        MARKETING_VERSION: "26.07.4"
+        CURRENT_PROJECT_VERSION: 25
         GENERATE_INFOPLIST_FILE: true
         CODE_SIGN_ENTITLEMENTS: Poirot/Resources/Poirot.entitlements
         INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright © 2025 Leonardo Cardoso"
