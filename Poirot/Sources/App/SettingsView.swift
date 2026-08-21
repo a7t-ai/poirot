@@ -1,3 +1,4 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
 
@@ -17,6 +18,11 @@ struct SettingsView: View {
             ViewerSettingsView()
                 .tabItem {
                     Label("Viewer", systemImage: "eye")
+                }
+
+            MemorySettingsView()
+                .tabItem {
+                    Label("Memory", systemImage: "brain.head.profile")
                 }
 
             UsageSettingsView()
@@ -134,6 +140,80 @@ private struct UsageSettingsView: View {
         }
         .padding(.vertical, 20)
         .padding(.horizontal, 32)
+    }
+}
+
+// MARK: - Memory
+
+private struct MemorySettingsView: View {
+    @Environment(MemorySourcesStore.self)
+    private var memorySources
+    @Environment(AppState.self)
+    private var appState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            settingsRow(alignment: .top) {
+                Text("Extra Folders:")
+            } control: {
+                VStack(alignment: .leading, spacing: 8) {
+                    if memorySources.folders.isEmpty {
+                        // swiftlint:disable:next line_length
+                        Text("No extra folders yet. Add one to show its `.md` files in the Memory tab, alongside your project memory.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        ForEach(memorySources.folders, id: \.self) { url in
+                            HStack(spacing: 8) {
+                                Image(systemName: "folder")
+                                    .foregroundStyle(.secondary)
+                                Text(url.path)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .help(url.path)
+                                Spacer(minLength: 8)
+                                Button {
+                                    memorySources.remove(url)
+                                    syncMemoryCount()
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove folder")
+                            }
+                        }
+                    }
+
+                    Button(action: addFolders) {
+                        Label("Add Folder…", systemImage: "plus")
+                    }
+                }
+                .frame(maxWidth: 340, alignment: .leading)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal, 32)
+    }
+
+    private func addFolders() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Add"
+        panel.message = "Choose folders whose Markdown files should appear in the Memory tab."
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls { memorySources.add(url) }
+        syncMemoryCount()
+    }
+
+    private func syncMemoryCount() {
+        appState.sidebarCounts[NavigationItem.memory.id] = ClaudeConfigLoader.totalMemoryFileCount()
     }
 }
 

@@ -7,6 +7,17 @@ nonisolated struct MemoryFile: Identifiable, Hashable, Sendable {
     let content: String
     let fileURL: URL
     let projectID: String
+    /// Display label for a user-added folder source; `nil` for per-project memory files (whose
+    /// label is resolved from the project list instead).
+    var sourceLabel: String? = nil
+
+    /// Whether this file came from a user-added folder rather than a project's memory dir.
+    var isCustomSource: Bool {
+        projectID.hasPrefix(Self.customSourcePrefix)
+    }
+
+    /// Prefix marking a `projectID` as a custom folder source (`custom:<path>`).
+    static let customSourcePrefix = "custom:"
 
     /// Whether this is the main MEMORY.md entrypoint file.
     var isMain: Bool {

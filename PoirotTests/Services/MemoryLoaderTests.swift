@@ -88,6 +88,45 @@ struct MemoryLoaderTests {
         #expect(files.first?.projectID == dirName)
     }
 
+    // MARK: - Custom Folder Sources
+
+    @Test
+    func loadMemoryFiles_customFolder_loadsMarkdownWithSourceLabel() throws {
+        let folder = try createTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+
+        try "# Notes".write(to: folder.appendingPathComponent("notes.md"), atomically: true, encoding: .utf8)
+        try "# Main".write(to: folder.appendingPathComponent("MEMORY.md"), atomically: true, encoding: .utf8)
+        try "ignore".write(to: folder.appendingPathComponent("todo.txt"), atomically: true, encoding: .utf8)
+
+        let files = ClaudeConfigLoader.loadMemoryFiles(customFolder: folder)
+
+        let allCustom = files.allSatisfy { $0.isCustomSource }
+        #expect(files.count == 2) // .txt ignored
+        #expect(files.first?.isMain == true) // MEMORY.md sorted first
+        #expect(allCustom)
+        #expect(files.first?.sourceLabel == folder.lastPathComponent)
+        #expect(files.first?.projectID == "custom:\(folder.path)")
+    }
+
+    @Test
+    func customMemoryFileCount_countsOnlyMarkdown() throws {
+        let folder = try createTempFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try "a".write(to: folder.appendingPathComponent("a.md"), atomically: true, encoding: .utf8)
+        try "b".write(to: folder.appendingPathComponent("b.md"), atomically: true, encoding: .utf8)
+        try "c".write(to: folder.appendingPathComponent("c.txt"), atomically: true, encoding: .utf8)
+
+        #expect(ClaudeConfigLoader.customMemoryFileCount(folder: folder) == 2)
+    }
+
+    @Test
+    func loadMemoryFiles_customFolder_missing_returnsEmpty() {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("poirot-missing-\(UUID().uuidString)")
+        #expect(ClaudeConfigLoader.loadMemoryFiles(customFolder: missing).isEmpty)
+    }
+
     // MARK: - Helpers
 
     private func createTempMemoryDir() throws -> (projectDir: URL, memoryDir: URL) {
@@ -98,5 +137,12 @@ struct MemoryLoaderTests {
         let memoryDir = projectDir.appendingPathComponent("memory")
         try FileManager.default.createDirectory(at: memoryDir, withIntermediateDirectories: true)
         return (projectDir, memoryDir)
+    }
+
+    private func createTempFolder() throws -> URL {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("poirot-mem-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        return folder
     }
 }
