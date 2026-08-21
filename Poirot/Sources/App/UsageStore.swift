@@ -53,8 +53,11 @@ final class UsageStore {
     /// Master switch for the background poll — off in previews and snapshot tests.
     private let autoRefreshEnabled: Bool
     private var autoRefreshTask: Task<Void, Never>?
-    /// When set, skip non-forced refreshes until this instant (rate-limit backoff).
-    private var rateLimitedUntil: Date?
+    /// When set, no fetch happens until this instant — a server-imposed backoff after a 429
+    /// (honoring `Retry-After`). Public so the dashboard can show a "retrying in Xm" countdown.
+    /// Even an explicit refresh is suppressed while this is in the future: a request inside the
+    /// window just earns another 429 and can extend Anthropic's lockout.
+    private(set) var rateLimitedUntil: Date?
     /// Fallback backoff when the 429 response carries no `Retry-After`.
     private static let defaultRateLimitBackoff: TimeInterval = 300
 
@@ -110,6 +113,15 @@ final class UsageStore {
     var usage: ClaudeUsage? {
         if case let .loaded(usage) = state { return usage }
         return nil
+    }
+
+    /// When the background poll will next fetch, for the dashboard's "next in Xm" hint. `nil`
+    /// when nothing is loaded yet, or when auto-refresh is off (`.manual`).
+    var nextRefreshAt: Date? {
+        guard case .loaded = state, refreshInterval != .manual,
+              let lastUpdated, let seconds = refreshInterval.seconds
+        else { return nil }
+        return lastUpdated.addingTimeInterval(seconds)
     }
 
     /// Opt in and immediately fetch (the explicit first read), then keep it fresh in the background.
@@ -206,9 +218,10 @@ final class UsageStore {
         if !force, let lastUpdated, Date().timeIntervalSince(lastUpdated) < throttle {
             return
         }
-        // The usage endpoint rate-limits how often it can be queried. After a 429 we hold off
-        // (honoring Retry-After) so the poll doesn't keep hammering; an explicit tap still tries.
-        if !force, let rateLimitedUntil, Date() < rateLimitedUntil {
+        // The usage endpoint rate-limits how often it can be queried, and punishes bursts with a
+        // long lockout. After a 429 we hold off until the server's Retry-After elapses — for
+        // explicit taps too, since a request inside the window only earns another 429.
+        if let rateLimitedUntil, Date() < rateLimitedUntil {
             return
         }
 

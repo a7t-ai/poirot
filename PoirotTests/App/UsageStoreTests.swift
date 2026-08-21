@@ -235,21 +235,25 @@ struct UsageStoreTests {
     }
 
     @Test
-    func refresh_rateLimited_backsOffUntilForced() async {
+    func refresh_rateLimited_suppressesEvenForcedDuringWindow() async {
         let mock = UsageLoadingMock()
-        mock.loadUsageReturnValue = .rateLimited(retryAfter: nil)
+        // A comfortably long server backoff so the window is unambiguously active.
+        mock.loadUsageReturnValue = .rateLimited(retryAfter: 60)
         let store = UsageStore(
             loader: mock, throttle: 0, autoRefreshEnabled: false, defaults: Self.freshDefaults(enabled: true)
         )
 
-        await store.refresh(force: true) // hits 429 → arms the backoff
+        await store.refresh(force: true) // hits 429 → arms the 60s backoff
+        #expect(mock.loadUsageCallsCount == 1)
+        #expect(store.rateLimitedUntil != nil)
+
+        await store.refresh() // timer tick suppressed during backoff
         #expect(mock.loadUsageCallsCount == 1)
 
-        await store.refresh() // non-forced (like a timer tick) is suppressed during backoff
+        // An explicit tap is ALSO suppressed inside the window — a request now just earns
+        // another 429 and can extend the lockout.
+        await store.refresh(force: true)
         #expect(mock.loadUsageCallsCount == 1)
-
-        await store.refresh(force: true) // an explicit tap still tries
-        #expect(mock.loadUsageCallsCount == 2)
     }
 
     @Test

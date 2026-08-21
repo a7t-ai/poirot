@@ -456,7 +456,45 @@ struct AnalyticsDashboardView: View {
                     tint: PoirotTheme.Colors.orange
                 )
             }
+
+            usageStatusFooter(now: now)
         }
+    }
+
+    /// A one-line footer under the gauges: when Anthropic is throttling us, a countdown and a
+    /// disclaimer; otherwise how fresh the data is and when the next auto-refresh lands.
+    @ViewBuilder
+    private func usageStatusFooter(now: Date) -> some View {
+        HStack(spacing: PoirotTheme.Spacing.xs) {
+            if let until = usageStore.rateLimitedUntil, until > now {
+                Image(systemName: "clock.badge.exclamationmark")
+                    .foregroundStyle(PoirotTheme.Colors.orange)
+                // swiftlint:disable:next line_length
+                Text("Anthropic limits how often usage can be checked — retrying in \(UsageCountdown.format(until.timeIntervalSince(now)))")
+                    .foregroundStyle(PoirotTheme.Colors.textTertiary)
+            } else {
+                Image(systemName: "checkmark.seal")
+                    .foregroundStyle(PoirotTheme.Colors.textTertiary)
+                Text(usageFreshnessText(now: now))
+                    .foregroundStyle(PoirotTheme.Colors.textTertiary)
+            }
+            Spacer(minLength: 0)
+        }
+        .font(PoirotTheme.Typography.micro)
+    }
+
+    private func usageFreshnessText(now: Date) -> String {
+        var parts: [String] = []
+        if let last = usageStore.lastUpdated {
+            parts.append("Updated \(UsageCountdown.format(now.timeIntervalSince(last))) ago")
+        }
+        if let next = usageStore.nextRefreshAt {
+            let remaining = next.timeIntervalSince(now)
+            parts.append(remaining > 0 ? "next in \(UsageCountdown.format(remaining))" : "next update due")
+        } else if usageStore.refreshInterval == .manual {
+            parts.append("auto-refresh off")
+        }
+        return parts.joined(separator: " · ")
     }
 
     private let usageCardHeight: CGFloat = 96
