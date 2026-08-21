@@ -163,10 +163,9 @@ struct UsagePlaceholderCard: View {
 
 // MARK: - Consent / Notice Card
 
-/// Consent-first card for usage limits. Nothing is read or fetched until the user taps the
-/// action. The disclaimer is always shown, so it stays in view across the opt-in, the
-/// "couldn't read token", and error states — wherever Poirot is about to (or just tried to)
-/// touch the Keychain.
+/// Consent-first card for usage limits. Nothing is fetched until the user taps the action. The
+/// disclaimer is always shown, so it stays in view across the opt-in, the "add your token", and
+/// error states — wherever Poirot is about to (or just tried to) reach Anthropic for usage.
 struct UsageOptInCard: View {
     var icon = "gauge.with.dots.needle.bottom.50percent"
     var title = "See your subscription usage limits"
@@ -225,7 +224,7 @@ struct UsageOptInCard: View {
 // MARK: - Disclaimer
 
 /// The standing privacy disclosure for usage limits — shown wherever Poirot is about to, or
-/// just failed to, read Claude Code's Keychain token, so the user always knows what's happening.
+/// just failed to, reach Anthropic for usage, so the user always knows what's happening.
 struct UsageDisclaimer: View {
     var sourceURL = URL(string: "https://github.com/a7t-ai/poirot")
 
@@ -237,7 +236,7 @@ struct UsageDisclaimer: View {
 
             VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xxs) {
                 // swiftlint:disable:next line_length
-                Text("Poirot reads the OAuth token Claude Code already stores in your Keychain and asks Anthropic directly for your usage. Nothing leaves your Mac — no servers, no tracking, no analytics. macOS will ask your permission the first time.")
+                Text("Poirot uses a token you generate with `claude setup-token`, stored in your Mac's Keychain, to ask Anthropic directly for your usage. Nothing leaves your Mac — no servers, no tracking, no analytics.")
                     .font(PoirotTheme.Typography.micro)
                     .foregroundStyle(PoirotTheme.Colors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

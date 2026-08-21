@@ -4,11 +4,12 @@ import Observation
 /// Shared, observable source of truth for Claude subscription usage. A single instance is
 /// created in `PoirotApp` and injected into both the analytics dashboard and the menu bar.
 ///
-/// Usage is **opt-in** and the Keychain is **only ever read on an explicit user action**
-/// (Enable / Load / Refresh) — never on appear, tab-switch, or launch. The last good snapshot
-/// is persisted (just utilization + reset times, all local), so on relaunch the gauges show
-/// from cache without touching the Keychain. Any access failure drops back to the idle "Load"
-/// state.
+/// Usage is **opt-in** and requests use a token the user generates with `claude setup-token`
+/// and pastes into Poirot (stored in Poirot's own Keychain item — see `PoirotTokenStore`).
+/// Fetches happen only on an explicit user action (Enable / Load / Refresh) or the background
+/// poll once `.loaded` — never on appear, tab-switch, or launch. The last good snapshot is
+/// persisted (just utilization + reset times, all local), so on relaunch the gauges show from
+/// cache. Any access failure drops back to the idle state.
 ///
 /// Once opted in **and** already holding loaded data, a background timer silently re-fetches on
 /// `autoRefreshInterval` so the gauges and reset countdowns stay current (a window that already
@@ -34,11 +35,15 @@ final class UsageStore {
     private(set) var lastUpdated: Date?
     /// Whether the user has opted in. Off by default — nothing is read or fetched until on.
     private(set) var isEnabled: Bool
+    /// Whether a usage token (from `claude setup-token`) is currently stored. Drives the
+    /// dashboard's "add your token" prompt vs. the normal load/refresh affordance.
+    private(set) var hasToken: Bool
     /// User-chosen background cadence. `.manual` means the poll is off and the user reloads
     /// on demand. Persisted; change it through `setRefreshInterval(_:)`.
     private(set) var refreshInterval: UsageRefreshInterval
 
     private let loader: any UsageLoading
+    private let tokenStore: any OAuthTokenStoring
     private let defaults: UserDefaults
     /// Minimum spacing between non-forced refreshes, so repeated explicit taps don't hammer.
     private let throttle: TimeInterval
@@ -55,17 +60,20 @@ final class UsageStore {
 
     init(
         loader: any UsageLoading = ClaudeUsageLoader(),
+        tokenStore: any OAuthTokenStoring = PoirotTokenStore(),
         throttle: TimeInterval = 30,
         autoRefreshOverride: TimeInterval? = nil,
         autoRefreshEnabled: Bool = true,
         defaults: UserDefaults = .standard
     ) {
         self.loader = loader
+        self.tokenStore = tokenStore
         self.throttle = throttle
         self.autoRefreshOverride = autoRefreshOverride
         self.autoRefreshEnabled = autoRefreshEnabled
         self.defaults = defaults
         self.isEnabled = defaults.bool(forKey: Self.enabledKey)
+        self.hasToken = tokenStore.read() != nil
         let storedMinutes = defaults.object(forKey: Self.intervalKey) as? Int
         self.refreshInterval = storedMinutes.flatMap(UsageRefreshInterval.init(rawValue:)) ?? .default
         // Restore the last snapshot so a relaunch shows gauges WITHOUT reading the Keychain.
@@ -119,6 +127,31 @@ final class UsageStore {
         lastUpdated = nil
         rateLimitedUntil = nil
         state = .idle(note: nil)
+    }
+
+    // MARK: - Token
+
+    /// Save the OAuth token (from `claude setup-token`) into Poirot's own Keychain item and, if
+    /// usage is already enabled, load immediately with it. Blank input is ignored.
+    func saveToken(_ token: String) async {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        tokenStore.save(trimmed)
+        hasToken = true
+        if isEnabled { await refresh(force: true) }
+    }
+
+    /// Forget the stored token and drop back to the idle state so the dashboard prompts for a
+    /// new one. Leaves the opt-in flag untouched.
+    func clearToken() {
+        tokenStore.delete()
+        hasToken = false
+        rateLimitedUntil = nil
+        if isEnabled {
+            clearSnapshot()
+            lastUpdated = nil
+            state = .idle(note: nil)
+        }
     }
 
     // MARK: - Background auto-refresh
@@ -193,10 +226,13 @@ final class UsageStore {
             startAutoRefresh()
 
         case .unauthenticated:
-            // Access problem → forget the snapshot and return to the idle Load state (rule 3).
+            // No usable token → forget the snapshot and return to idle. The note distinguishes
+            // "you haven't added one yet" from "the one you added was rejected/expired".
             clearSnapshot()
             lastUpdated = nil
-            state = .idle(note: "Couldn't read your Claude Code token — allow Keychain access, then load again.")
+            state = .idle(note: hasToken
+                ? "Your usage token was rejected — run `claude setup-token` again and update it in Settings › Usage."
+                : "Add your usage token in Settings › Usage to see your limits.")
 
         case let .rateLimited(retryAfter):
             // Back off before the next poll; keep any cached gauges rather than dropping them.

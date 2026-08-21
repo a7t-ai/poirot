@@ -135,6 +135,90 @@ struct UsageStoreTests {
         #expect(restored.usage == nil)
     }
 
+    // MARK: - Token
+
+    @Test
+    func saveToken_setsHasToken_andLoadsWhenEnabled() async {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .success(Self.sampleUsage)
+        let tokens = OAuthTokenStoringMock()
+        let store = UsageStore(
+            loader: mock,
+            tokenStore: tokens,
+            throttle: 0,
+            autoRefreshEnabled: false,
+            defaults: Self.freshDefaults(enabled: true)
+        )
+        #expect(!store.hasToken)
+
+        await store.saveToken("  sk-ant-oat-xyz  ")
+
+        #expect(store.hasToken)
+        #expect(tokens.token == "sk-ant-oat-xyz") // trimmed
+        #expect(mock.loadUsageCalled)
+        #expect(store.usage != nil)
+    }
+
+    @Test
+    func saveToken_whenBlank_isIgnored() async {
+        let tokens = OAuthTokenStoringMock()
+        let store = UsageStore(
+            loader: UsageLoadingMock(),
+            tokenStore: tokens,
+            throttle: 0,
+            autoRefreshEnabled: false,
+            defaults: Self.freshDefaults(enabled: true)
+        )
+
+        await store.saveToken("   ")
+
+        #expect(!store.hasToken)
+        #expect(tokens.token == nil)
+    }
+
+    @Test
+    func clearToken_forgetsTokenAndGoesIdle() async {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .success(Self.sampleUsage)
+        let tokens = OAuthTokenStoringMock(token: "sk-existing")
+        let store = UsageStore(
+            loader: mock,
+            tokenStore: tokens,
+            throttle: 0,
+            autoRefreshEnabled: false,
+            defaults: Self.freshDefaults(enabled: true)
+        )
+        await store.refresh(force: true)
+        #expect(store.hasToken)
+
+        store.clearToken()
+
+        #expect(!store.hasToken)
+        #expect(tokens.token == nil)
+        #expect(Self.isIdle(store.state))
+    }
+
+    @Test
+    func unauthenticated_withoutToken_promptsToAddOne() async {
+        let mock = UsageLoadingMock()
+        mock.loadUsageReturnValue = .unauthenticated
+        let store = UsageStore(
+            loader: mock,
+            tokenStore: OAuthTokenStoringMock(token: nil),
+            throttle: 0,
+            autoRefreshEnabled: false,
+            defaults: Self.freshDefaults(enabled: true)
+        )
+
+        await store.refresh(force: true)
+
+        guard case let .idle(note) = store.state else {
+            Issue.record("expected idle after unauthenticated")
+            return
+        }
+        #expect(note?.contains("Add your usage token") == true)
+    }
+
     @Test
     func refresh_failureFromIdle_goesIdleWithNote() async {
         let mock = UsageLoadingMock()

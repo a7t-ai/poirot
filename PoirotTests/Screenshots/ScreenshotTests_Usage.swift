@@ -50,10 +50,10 @@ struct ScreenshotTests_Usage {
     func testUsageUnauthenticated() {
         let view = UsageOptInCard(
             icon: "key.slash",
-            title: "Couldn't read your Claude Code token",
-            message: "Allow Keychain access when macOS asks, or reopen Claude Code if your session expired.",
-            actionTitle: "Retry",
-            actionIcon: "arrow.clockwise"
+            title: "Add your usage token",
+            message: "Run `claude setup-token` in your terminal, then paste the token in Settings › Usage.",
+            actionTitle: "Open Settings",
+            actionIcon: "gearshape"
         ) {}
             .frame(width: 460)
             .padding(PoirotTheme.Spacing.xl)

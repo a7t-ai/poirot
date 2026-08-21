@@ -6,6 +6,8 @@ struct AnalyticsDashboardView: View {
     private var usageStore
     @Environment(\.provider)
     private var provider
+    @Environment(\.openSettings)
+    private var openSettings
     @State
     private var viewModel: AnalyticsViewModel
     @State
@@ -52,9 +54,9 @@ struct AnalyticsDashboardView: View {
                 await viewModel.loadStats()
             }
         }
-        // Usage is never fetched on appear. The Keychain is read only on an explicit action
-        // (Enable / Load / Refresh); restarts show the persisted snapshot, so navigating here
-        // never prompts.
+        // Usage is never fetched on appear — only on an explicit action (Enable / Load /
+        // Refresh) or the background poll. Restarts show the persisted snapshot, so navigating
+        // here never triggers a request.
     }
 
     // MARK: - Toolbar
@@ -361,7 +363,7 @@ struct AnalyticsDashboardView: View {
                     .font(PoirotTheme.Typography.headingSmall)
                     .foregroundStyle(PoirotTheme.Colors.textPrimary)
                 // swiftlint:disable:next line_length
-                InfoTooltipButton(text: "Subscription rate-limit windows from your Claude Code session. No extra login — Poirot reads the token Claude Code already stores.")
+                InfoTooltipButton(text: "Your Claude subscription's rate-limit windows. Poirot uses the token you generate with `claude setup-token` — no extra login.")
                 Spacer()
             }
 
@@ -394,15 +396,26 @@ struct AnalyticsDashboardView: View {
             )
 
         case let .idle(note):
-            // Load reads the Keychain only on this explicit tap; the disclaimer stays in view.
-            // After a failed attempt, `note` explains why and the action becomes "Try again".
-            UsageOptInCard(
-                icon: note == nil ? "gauge.with.dots.needle.bottom.50percent" : "key.slash",
-                title: note == nil ? "Load your usage limits" : "Couldn't read your usage limits",
-                message: note ?? "Fetch your current 5-hour and 7-day rate-limit windows.",
-                actionTitle: note == nil ? "Load" : "Try again",
-                actionIcon: note == nil ? "arrow.down.circle" : "arrow.clockwise"
-            ) { Task { await usageStore.refresh(force: true) } }
+            if usageStore.hasToken {
+                // A token is stored: the tap loads/retries. `note` explains a prior failure.
+                UsageOptInCard(
+                    icon: note == nil ? "gauge.with.dots.needle.bottom.50percent" : "key.slash",
+                    title: note == nil ? "Load your usage limits" : "Couldn't read your usage limits",
+                    message: note ?? "Fetch your current 5-hour and 7-day rate-limit windows.",
+                    actionTitle: note == nil ? "Load" : "Try again",
+                    actionIcon: note == nil ? "arrow.down.circle" : "arrow.clockwise"
+                ) { Task { await usageStore.refresh(force: true) } }
+            } else {
+                // No token yet: retrying is pointless — send the user to Settings to add one.
+                UsageOptInCard(
+                    icon: "key.slash",
+                    title: "Add your usage token",
+                    // swiftlint:disable:next line_length
+                    message: note ?? "Run `claude setup-token` in your terminal, then paste the token in Settings › Usage.",
+                    actionTitle: "Open Settings",
+                    actionIcon: "gearshape"
+                ) { openSettings() }
+            }
         }
     }
 

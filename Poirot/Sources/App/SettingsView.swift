@@ -41,6 +41,9 @@ private struct UsageSettingsView: View {
     @Environment(\.provider)
     private var provider
 
+    @State
+    private var tokenInput = ""
+
     private var intervalBinding: Binding<UsageRefreshInterval> {
         Binding(
             get: { usageStore.refreshInterval },
@@ -48,9 +51,57 @@ private struct UsageSettingsView: View {
         )
     }
 
+    private var trimmedToken: String {
+        tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func saveToken() {
+        let token = trimmedToken
+        guard !token.isEmpty else { return }
+        tokenInput = ""
+        Task { await usageStore.saveToken(token) }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if provider.supports(.usage) {
+                settingsRow {
+                    Text("Usage Token:")
+                } control: {
+                    HStack(spacing: 8) {
+                        SecureField("Paste token from claude setup-token", text: $tokenInput)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 240)
+                            .onSubmit(saveToken)
+                        Button("Save", action: saveToken)
+                            .disabled(trimmedToken.isEmpty)
+                    }
+                }
+
+                settingsRow {
+                    Text("")
+                } control: {
+                    if usageStore.hasToken {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                            Text("Token saved")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Button("Remove", action: usageStore.clearToken)
+                                .buttonStyle(.link)
+                                .font(.caption)
+                        }
+                    } else {
+                        Text("Run `claude setup-token` in your terminal, then paste the token here.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                settingsDivider
+
                 settingsRow {
                     Text("Auto-Refresh:")
                 } control: {

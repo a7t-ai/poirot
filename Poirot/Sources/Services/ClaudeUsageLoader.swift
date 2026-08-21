@@ -1,23 +1,23 @@
 import Foundation
 
-/// Fetches subscription rate-limit usage from Claude's OAuth usage endpoint, reusing the
-/// token Claude Code already stored locally. No login flow, no API key, no stored secret of
-/// our own — Poirot borrows the existing credential read-only.
+/// Fetches subscription rate-limit usage from Claude's OAuth usage endpoint, using the token
+/// the user generates with `claude setup-token` and pastes into Poirot. No login flow, no API
+/// key — the token is read from Poirot's own Keychain item (see `PoirotTokenStore`).
 nonisolated struct ClaudeUsageLoader: UsageLoading {
     static let endpoint = "https://api.anthropic.com/api/oauth/usage"
     /// Beta header the OAuth usage endpoint requires.
     static let betaHeader = "oauth-2025-04-20"
     static let apiVersion = "2023-06-01"
 
+    private let tokenStore: any OAuthTokenStoring
+
+    init(tokenStore: any OAuthTokenStoring = PoirotTokenStore()) {
+        self.tokenStore = tokenStore
+    }
+
     nonisolated func loadUsage() async -> UsageResult {
-        // Reuse the cached credential when possible so repeated background refreshes don't hit
-        // the Keychain — and re-prompt for authorization — on every poll.
-        guard let credentials = await ClaudeCredentialStore.shared.current() else {
-            return .unauthenticated
-        }
-        // Poirot never refreshes tokens; if Claude Code hasn't refreshed its own, surface
-        // the unauthenticated state rather than firing a request we know will 401.
-        guard !credentials.isExpired() else {
+        // Reads Poirot's own Keychain item, which Poirot owns — no authorization prompt.
+        guard let token = tokenStore.read(), !token.isEmpty else {
             return .unauthenticated
         }
         guard let url = URL(string: Self.endpoint) else {
@@ -26,7 +26,7 @@ nonisolated struct ClaudeUsageLoader: UsageLoading {
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        request.setValue("Bearer \(credentials.accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue(Self.betaHeader, forHTTPHeaderField: "anthropic-beta")
         request.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
         request.timeoutInterval = 15
@@ -38,9 +38,8 @@ nonisolated struct ClaudeUsageLoader: UsageLoading {
         }
 
         if http.statusCode == 401 || http.statusCode == 403 {
-            // The cached token was rejected — drop it so the next attempt re-reads whatever
-            // credential Claude Code has rotated to.
-            await ClaudeCredentialStore.shared.invalidate()
+            // Token rejected or expired — the user needs to generate a fresh one with
+            // `claude setup-token` and update it in Settings.
             return .unauthenticated
         }
         if http.statusCode == 429 {
