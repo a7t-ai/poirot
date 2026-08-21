@@ -360,11 +360,8 @@ struct AnalyticsDashboardView: View {
                 Text("Usage Limits")
                     .font(PoirotTheme.Typography.headingSmall)
                     .foregroundStyle(PoirotTheme.Colors.textPrimary)
-                Image(systemName: "info.circle")
-                    .font(.system(size: 12))
-                    .foregroundStyle(PoirotTheme.Colors.textTertiary)
-                    // swiftlint:disable:next line_length
-                    .help("Subscription rate-limit windows from your Claude Code session. No extra login — Poirot reads the token Claude Code already stores.")
+                // swiftlint:disable:next line_length
+                InfoTooltipButton(text: "Subscription rate-limit windows from your Claude Code session. No extra login — Poirot reads the token Claude Code already stores.")
                 Spacer()
             }
 
