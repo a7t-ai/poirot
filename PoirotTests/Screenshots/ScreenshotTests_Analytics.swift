@@ -11,17 +11,6 @@ struct ScreenshotTests_Analytics {
     // a slightly relaxed precision compared to static UI tests.
     private let chartPrecision: Float = 0.97
 
-    // Fixed reference time + usage so the usage gauges render deterministically.
-    private static let usageNow = Date(timeIntervalSince1970: 1_780_000_000)
-    private static let sampleUsage = ClaudeUsage(
-        fiveHour: UsageWindow(utilization: 22, resetsAt: usageNow.addingTimeInterval(8040)),
-        sevenDay: UsageWindow(utilization: 64, resetsAt: usageNow.addingTimeInterval(280_800)),
-        sevenDayOpus: nil,
-        sevenDaySonnet: nil,
-        spend: nil,
-        extraUsage: nil
-    )
-
     // MARK: - Full App (Sidebar + Analytics Dashboard)
 
     @Test
@@ -81,8 +70,7 @@ struct ScreenshotTests_Analytics {
         let vm = AnalyticsViewModel(preloaded: Self.mockStats)
         try await snapshotView(
             withEnvironment(
-                AnalyticsDashboardView(viewModel: vm, usageNow: Self.usageNow),
-                usageStore: .preview(.loaded(Self.sampleUsage))
+                AnalyticsDashboardView(viewModel: vm)
             ),
             size: ScreenshotSize.mainContent,
             named: "testAnalyticsDashboardContent",
@@ -107,8 +95,8 @@ struct ScreenshotTests_Analytics {
         let vm = AnalyticsViewModel(preloaded: Self.mockStats)
 
         try await snapshotView(
-            compositeAppView(state: state, usageStore: .preview(.loaded(Self.sampleUsage))) {
-                AnalyticsDashboardView(viewModel: vm, usageNow: Self.usageNow)
+            compositeAppView(state: state) {
+                AnalyticsDashboardView(viewModel: vm)
             },
             size: ScreenshotSize.fullApp,
             named: name,

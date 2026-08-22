@@ -24,10 +24,6 @@ private struct FileHistoryLoaderKey: EnvironmentKey {
     static let defaultValue: any FileHistoryLoading = FileHistoryLoader()
 }
 
-private struct UsageLoaderKey: EnvironmentKey {
-    static let defaultValue: any UsageLoading = ClaudeUsageLoader()
-}
-
 extension EnvironmentValues {
     var sessionLoader: any SessionLoading {
         get { self[SessionLoaderKey.self] }
@@ -57,10 +53,5 @@ extension EnvironmentValues {
     var fileHistoryLoader: any FileHistoryLoading {
         get { self[FileHistoryLoaderKey.self] }
         set { self[FileHistoryLoaderKey.self] = newValue }
-    }
-
-    var usageLoader: any UsageLoading {
-        get { self[UsageLoaderKey.self] }
-        set { self[UsageLoaderKey.self] = newValue }
     }
 }

@@ -484,9 +484,49 @@ enum ClaudeConfigLoader {
         }
     }
 
-    /// Counts total memory files across all projects.
+    /// Loads `.md` memory files from a user-added folder (non-recursive). Each file carries the
+    /// folder's name as its `sourceLabel` so custom sources are distinguishable from projects.
+    nonisolated static func loadMemoryFiles(customFolder folder: URL) -> [MemoryFile] {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: nil
+        ) else { return [] }
+
+        let label = folder.lastPathComponent
+        let projectID = "\(MemoryFile.customSourcePrefix)\(folder.path)"
+        return files
+            .filter { $0.pathExtension == "md" }
+            .compactMap { url -> MemoryFile? in
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+                let filename = url.lastPathComponent
+                return MemoryFile(
+                    id: "\(projectID)/\(filename)",
+                    name: MemoryFile.displayName(from: filename),
+                    filename: filename,
+                    content: content,
+                    fileURL: url,
+                    projectID: projectID,
+                    sourceLabel: label
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.isMain { return true }
+                if rhs.isMain { return false }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+    }
+
+    /// Counts the `.md` files in a user-added memory folder.
+    nonisolated static func customMemoryFileCount(folder: URL) -> Int {
+        (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?
+            .filter { $0.pathExtension == "md" }.count ?? 0
+    }
+
+    /// Counts total memory files across all projects and any user-added folders.
     nonisolated static func totalMemoryFileCount() -> Int {
-        projectsWithMemory().reduce(0) { $0 + $1.count }
+        let projectCount = projectsWithMemory().reduce(0) { $0 + $1.count }
+        let customCount = MemorySourcesStore.loadFolders()
+            .reduce(0) { $0 + customMemoryFileCount(folder: $1) }
+        return projectCount + customCount
     }
 
     // MARK: - Settings

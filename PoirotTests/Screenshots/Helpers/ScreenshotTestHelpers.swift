@@ -159,13 +159,13 @@ func withEnvironment<V: View>(
     state: AppState? = nil,
     provider: any ProviderDescribing = ClaudeCodeProvider(),
     historyLoader: (any HistoryLoading)? = nil,
-    usageStore: UsageStore = .preview(.idle(note: nil))
+    memorySources: MemorySourcesStore = .previewEmpty()
 ) -> some View {
     let appState = state ?? makeAppState()
     let result = view
         .environment(appState)
         .environment(\.provider, provider)
-        .environment(usageStore)
+        .environment(memorySources)
     if let historyLoader {
         return AnyView(result.environment(\.historyLoader, historyLoader))
     }
@@ -181,7 +181,7 @@ func compositeAppView<Detail: View>(
     state: AppState? = nil,
     provider: any ProviderDescribing = ClaudeCodeProvider(),
     historyLoader: (any HistoryLoading)? = nil,
-    usageStore: UsageStore = .preview(.idle(note: nil)),
+    memorySources: MemorySourcesStore = .previewEmpty(),
     @ViewBuilder detail: () -> Detail
 ) -> some View {
     let appState = state ?? makeAppState()
@@ -195,7 +195,7 @@ func compositeAppView<Detail: View>(
     }
     .environment(appState)
     .environment(\.provider, provider)
-    .environment(usageStore)
+    .environment(memorySources)
 
     if let historyLoader {
         return AnyView(view.environment(\.historyLoader, historyLoader))

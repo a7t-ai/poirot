@@ -2,8 +2,6 @@ import Charts
 import SwiftUI
 
 struct AnalyticsDashboardView: View {
-    @Environment(UsageStore.self)
-    private var usageStore
     @Environment(\.provider)
     private var provider
     @State
@@ -21,13 +19,8 @@ struct AnalyticsDashboardView: View {
     @State
     private var modelSelectedAngle: Int?
 
-    /// Reference time for usage reset countdowns. `nil` (the default) uses the live clock
-    /// at render time; tests inject a fixed value for deterministic snapshots.
-    private let usageNow: Date?
-
-    init(viewModel: AnalyticsViewModel = AnalyticsViewModel(), usageNow: Date? = nil) {
+    init(viewModel: AnalyticsViewModel = AnalyticsViewModel()) {
         _viewModel = State(initialValue: viewModel)
-        self.usageNow = usageNow
     }
 
     var body: some View {
@@ -52,9 +45,6 @@ struct AnalyticsDashboardView: View {
                 await viewModel.loadStats()
             }
         }
-        // Usage is never fetched on appear. The Keychain is read only on an explicit action
-        // (Enable / Load / Refresh); restarts show the persisted snapshot, so navigating here
-        // never prompts.
     }
 
     // MARK: - Toolbar
@@ -188,9 +178,6 @@ struct AnalyticsDashboardView: View {
         Button {
             Task {
                 await viewModel.loadStats()
-                if provider.supports(.usage) {
-                    await usageStore.refresh(force: true)
-                }
             }
         } label: {
             Image(systemName: "arrow.clockwise")
@@ -203,18 +190,14 @@ struct AnalyticsDashboardView: View {
 
     // MARK: - Dashboard Content
 
-    /// Always renders the header and the usage section (when supported), so usage limits are
-    /// reachable even when there's no stats cache. The stats area below shows charts when the
-    /// cache is present, or a compact notice when it isn't.
+    /// Always renders the header, so the dashboard is reachable even when there's no stats
+    /// cache. The stats area below shows charts when the cache is present, or a compact notice
+    /// when it isn't.
     private var dashboardContent: some View {
         VStack(spacing: 0) {
             header(viewModel.stats)
             ScrollView {
                 VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xxl) {
-                    if provider.supports(.usage) {
-                        usageSection
-                    }
-
                     if let stats = viewModel.stats {
                         statsCharts(stats)
                     } else {
@@ -350,106 +333,6 @@ struct AnalyticsDashboardView: View {
             Divider().opacity(0.3)
         }
     }
-
-    // MARK: - Usage Limits
-
-    @ViewBuilder
-    private var usageSection: some View {
-        VStack(alignment: .leading, spacing: PoirotTheme.Spacing.md) {
-            HStack(spacing: PoirotTheme.Spacing.sm) {
-                Text("Usage Limits")
-                    .font(PoirotTheme.Typography.headingSmall)
-                    .foregroundStyle(PoirotTheme.Colors.textPrimary)
-                Image(systemName: "info.circle")
-                    .font(.system(size: 12))
-                    .foregroundStyle(PoirotTheme.Colors.textTertiary)
-                    // swiftlint:disable:next line_length
-                    .help("Subscription rate-limit windows from your Claude Code session. No extra login — Poirot reads the token Claude Code already stores.")
-                Spacer()
-            }
-
-            usageContent
-        }
-    }
-
-    @ViewBuilder
-    private var usageContent: some View {
-        if !usageStore.isEnabled {
-            UsageOptInCard {
-                Task { await usageStore.enable() }
-            }
-        } else {
-            enabledUsageContent
-        }
-    }
-
-    @ViewBuilder
-    private var enabledUsageContent: some View {
-        switch usageStore.state {
-        case let .loaded(usage):
-            loadedUsage(usage)
-
-        case .loading:
-            UsagePlaceholderCard(
-                icon: "gauge.with.dots.needle.bottom.50percent",
-                message: "Loading usage limits…",
-                pulse: true
-            )
-
-        case let .idle(note):
-            // Load reads the Keychain only on this explicit tap; the disclaimer stays in view.
-            // After a failed attempt, `note` explains why and the action becomes "Try again".
-            UsageOptInCard(
-                icon: note == nil ? "gauge.with.dots.needle.bottom.50percent" : "key.slash",
-                title: note == nil ? "Load your usage limits" : "Couldn't read your usage limits",
-                message: note ?? "Fetch your current 5-hour and 7-day rate-limit windows.",
-                actionTitle: note == nil ? "Load" : "Try again",
-                actionIcon: note == nil ? "arrow.down.circle" : "arrow.clockwise"
-            ) { Task { await usageStore.refresh(force: true) } }
-        }
-    }
-
-    @ViewBuilder
-    private func loadedUsage(_ usage: ClaudeUsage) -> some View {
-        let now = usageNow ?? Date()
-        VStack(spacing: PoirotTheme.Spacing.md) {
-            HStack(spacing: PoirotTheme.Spacing.md) {
-                UsageGaugeCard(title: "5-Hour Window", icon: "clock.arrow.circlepath", window: usage.fiveHour, now: now)
-                UsageGaugeCard(title: "7-Day Window", icon: "calendar", window: usage.sevenDay, now: now)
-            }
-            .frame(height: usageCardHeight)
-
-            if usage.sevenDayOpus != nil || usage.sevenDaySonnet != nil {
-                HStack(spacing: PoirotTheme.Spacing.md) {
-                    if let opus = usage.sevenDayOpus {
-                        UsageGaugeCard(title: "Opus · Weekly", icon: "sparkle", window: opus, now: now)
-                    }
-                    if let sonnet = usage.sevenDaySonnet {
-                        UsageGaugeCard(title: "Sonnet · Weekly", icon: "wand.and.stars", window: sonnet, now: now)
-                    }
-                }
-                .frame(height: usageCardHeight)
-            }
-
-            if let spend = usage.spend, spend.enabled {
-                UsagePlaceholderCard(
-                    icon: "dollarsign.circle",
-                    message: "Spend: \(String(format: "$%.2f", spend.usedDollars)) · \(Int(spend.utilization.rounded()))% of limit",
-                    tint: PoirotTheme.Colors.green
-                )
-            }
-
-            if let extra = usage.extraUsage, extra.enabled {
-                UsagePlaceholderCard(
-                    icon: "plus.circle",
-                    message: "Extra usage: \(Int((extra.utilization ?? 0).rounded()))% used",
-                    tint: PoirotTheme.Colors.orange
-                )
-            }
-        }
-    }
-
-    private let usageCardHeight: CGFloat = 96
 
     // MARK: - Summary Cards
 

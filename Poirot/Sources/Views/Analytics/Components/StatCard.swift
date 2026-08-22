@@ -55,31 +55,3 @@ struct StatCard: View {
         )
     }
 }
-
-// MARK: - Info Tooltip Button
-
-private struct InfoTooltipButton: View {
-    let text: String
-
-    @State
-    private var isPresented = false
-
-    var body: some View {
-        Button {
-            isPresented.toggle()
-        } label: {
-            Image(systemName: "info.circle")
-                .font(.system(size: 12))
-                .foregroundStyle(PoirotTheme.Colors.textTertiary)
-        }
-        .buttonStyle(.plain)
-        .help("More info")
-        .popover(isPresented: $isPresented, arrowEdge: .top) {
-            Text(text)
-                .font(PoirotTheme.Typography.small)
-                .foregroundStyle(PoirotTheme.Colors.textSecondary)
-                .padding(PoirotTheme.Spacing.md)
-                .frame(maxWidth: 260)
-        }
-    }
-}

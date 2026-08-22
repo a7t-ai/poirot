@@ -6,9 +6,9 @@ struct MemoryListView: View {
     @State
     private var memoryFiles: [MemoryFile] = []
     @State
-    private var projectsWithMemory: [(dirName: String, projectName: String, count: Int)] = []
+    private var sources: [MemorySource] = []
     @State
-    private var selectedProjectDir: String?
+    private var selectedSourceID: String?
     @State
     private var isRevealed = false
     @State
@@ -22,6 +22,8 @@ struct MemoryListView: View {
 
     @Environment(AppState.self)
     private var appState
+    @Environment(MemorySourcesStore.self)
+    private var memorySources
 
     private var filteredMemoryFiles: [MemoryFile] {
         let q = filterQuery.trimmingCharacters(in: .whitespaces)
@@ -69,6 +71,13 @@ struct MemoryListView: View {
                 reloadMemoryFiles()
             }
         }
+        .onChange(of: memorySources.folders) {
+            // A folder was added/removed in Settings — refresh sources, files, count and watchers.
+            reloadSources()
+            reloadMemoryFiles()
+            syncSidebarCount()
+            restartWatching()
+        }
     }
 
     private var listView: some View {
@@ -82,17 +91,17 @@ struct MemoryListView: View {
                 ConfigSkeletonView(
                     layout: appState.configLayout(for: item.id)
                 )
-            } else if projectsWithMemory.isEmpty {
+            } else if sources.isEmpty {
                 ConfigEmptyState(
                     icon: "brain.head.profile",
                     message: "No memory files found",
-                    hint: "~/.claude/projects/<project>/memory/"
+                    hint: "Add a folder in Settings › Memory, or use ~/.claude/projects/<project>/memory/"
                 )
-            } else if memoryFiles.isEmpty, selectedProjectDir != nil {
+            } else if memoryFiles.isEmpty, selectedSourceID != nil {
                 ConfigEmptyState(
                     icon: "brain.head.profile",
-                    message: "No memory files in this project",
-                    hint: "Select a different project"
+                    message: "No memory files in this source",
+                    hint: "Select a different source"
                 )
             } else if filteredMemoryFiles.isEmpty {
                 ConfigEmptyState(
@@ -113,7 +122,7 @@ struct MemoryListView: View {
             )
         }
         .task {
-            reloadProjects()
+            reloadSources()
             reloadMemoryFiles()
             syncSidebarCount()
             startWatching()
@@ -140,9 +149,9 @@ struct MemoryListView: View {
     private var memoryCountLabel: String {
         let count = memoryFiles.count
         let fileWord = count == 1 ? "file" : "files"
-        if let dir = selectedProjectDir,
-           let proj = projectsWithMemory.first(where: { $0.dirName == dir }) {
-            return "\(count) \(fileWord) in \(proj.projectName)"
+        if let id = selectedSourceID,
+           let source = sources.first(where: { $0.id == id }) {
+            return "\(count) \(fileWord) in \(source.name)"
         }
         return "\(count) \(fileWord)"
     }
@@ -169,24 +178,25 @@ struct MemoryListView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: PoirotTheme.Spacing.sm) {
                 ProjectChip(
-                    name: "All Projects",
-                    count: projectsWithMemory.reduce(0) { $0 + $1.count },
-                    isSelected: selectedProjectDir == nil
+                    name: "All",
+                    count: sources.reduce(0) { $0 + $1.count },
+                    isSelected: selectedSourceID == nil
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedProjectDir = nil
+                        selectedSourceID = nil
                     }
                     reloadMemoryFiles()
                 }
 
-                ForEach(projectsWithMemory, id: \.dirName) { project in
+                ForEach(sources) { source in
                     ProjectChip(
-                        name: project.projectName,
-                        count: project.count,
-                        isSelected: selectedProjectDir == project.dirName
+                        name: source.name,
+                        count: source.count,
+                        isSelected: selectedSourceID == source.id,
+                        icon: source.isCustom ? "folder" : nil
                     ) {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedProjectDir = project.dirName
+                            selectedSourceID = source.id
                         }
                         reloadMemoryFiles()
                     }
@@ -263,27 +273,43 @@ struct MemoryListView: View {
         appState.pushConfigDetail(navItemID: NavigationItem.memory.id, detail: detail)
     }
 
-    private func reloadProjects() {
+    private func reloadSources() {
         let projects = appState.projects
-        let mapped = ClaudeConfigLoader.projectsWithMemory()
-            .compactMap { dirName, count in
+        let projectSources = ClaudeConfigLoader.projectsWithMemory()
+            .map { dirName, count -> MemorySource in
                 let name = projects.first(where: { $0.id == dirName })?.name ?? decodeProjectName(dirName)
-                return (dirName: dirName, projectName: name, count: count)
+                return MemorySource(id: dirName, name: name, count: count, isCustom: false, folderURL: nil)
             }
-        projectsWithMemory = mapped
-            .sorted { $0.projectName.localizedCaseInsensitiveCompare($1.projectName) == .orderedAscending }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+        let customSources = memorySources.folders.map { url -> MemorySource in
+            MemorySource(
+                id: "\(MemoryFile.customSourcePrefix)\(url.path)",
+                name: url.lastPathComponent,
+                count: ClaudeConfigLoader.customMemoryFileCount(folder: url),
+                isCustom: true,
+                folderURL: url
+            )
+        }
+
+        sources = projectSources + customSources
+        // Drop a stale selection if the source disappeared (e.g. a removed folder).
+        if let id = selectedSourceID, !sources.contains(where: { $0.id == id }) {
+            selectedSourceID = nil
+        }
     }
 
     private func reloadMemoryFiles() {
-        if let dir = selectedProjectDir {
-            memoryFiles = ClaudeConfigLoader.loadMemoryFiles(projectDirName: dir)
+        if let id = selectedSourceID, let source = sources.first(where: { $0.id == id }) {
+            memoryFiles = source.folderURL.map { ClaudeConfigLoader.loadMemoryFiles(customFolder: $0) }
+                ?? ClaudeConfigLoader.loadMemoryFiles(projectDirName: source.id)
         } else {
-            // Load from all projects
-            let allFiles = ClaudeConfigLoader.projectsWithMemory()
-                .flatMap { dirName, _ in
-                    ClaudeConfigLoader.loadMemoryFiles(projectDirName: dirName)
-                }
-            memoryFiles = allFiles
+            // Load from every source: project memory dirs plus user-added folders.
+            let projectFiles = ClaudeConfigLoader.projectsWithMemory()
+                .flatMap { dirName, _ in ClaudeConfigLoader.loadMemoryFiles(projectDirName: dirName) }
+            let customFiles = memorySources.folders
+                .flatMap { ClaudeConfigLoader.loadMemoryFiles(customFolder: $0) }
+            memoryFiles = (projectFiles + customFiles)
                 .sorted { lhs, rhs in
                     if lhs.isMain != rhs.isMain { return lhs.isMain }
                     return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
@@ -302,7 +328,7 @@ struct MemoryListView: View {
 
         let onFilesChanged: @MainActor ()
             -> Void = { [weak appState] in
-                reloadProjects()
+                reloadSources()
                 reloadMemoryFiles()
                 appState?.sidebarCounts[NavigationItem.memory.id] = ClaudeConfigLoader.totalMemoryFileCount()
             }
@@ -313,15 +339,30 @@ struct MemoryListView: View {
         fileWatchers.append(projectsWatcher)
 
         // Watch each project's memory directory for file changes
-        for project in projectsWithMemory {
+        for source in sources where !source.isCustom {
             let memoryPath = claudeDir
                 .appendingPathComponent("projects")
-                .appendingPathComponent(project.dirName)
+                .appendingPathComponent(source.id)
                 .appendingPathComponent("memory").path
             let memoryWatcher = FileWatcher(onChange: onFilesChanged)
             memoryWatcher.start(path: memoryPath)
             fileWatchers.append(memoryWatcher)
         }
+
+        // Watch each user-added folder for file changes
+        for url in memorySources.folders {
+            let folderWatcher = FileWatcher(onChange: onFilesChanged)
+            folderWatcher.start(path: url.path)
+            fileWatchers.append(folderWatcher)
+        }
+    }
+
+    /// Tear down and re-arm the file watchers — used after the source set changes so newly
+    /// added folders are watched and removed ones are dropped.
+    private func restartWatching() {
+        for watcher in fileWatchers { watcher.stop() }
+        fileWatchers.removeAll()
+        startWatching()
     }
 
     private func decodeProjectName(_ encoded: String) -> String {
@@ -334,10 +375,21 @@ struct MemoryListView: View {
 
 // MARK: - Project Chip
 
+private struct MemorySource: Identifiable, Equatable {
+    /// Project directory hash, or `custom:<path>` for a user-added folder.
+    let id: String
+    let name: String
+    let count: Int
+    let isCustom: Bool
+    /// The folder to read, for custom sources; `nil` for project sources.
+    let folderURL: URL?
+}
+
 private struct ProjectChip: View {
     let name: String
     let count: Int
     let isSelected: Bool
+    var icon: String? = nil
     let action: () -> Void
 
     @State
@@ -346,6 +398,14 @@ private struct ProjectChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: PoirotTheme.Spacing.xs) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(PoirotTheme.Typography.pico)
+                        .foregroundStyle(
+                            isSelected ? PoirotTheme.Colors.accent : PoirotTheme.Colors.textTertiary
+                        )
+                }
+
                 Text(name)
                     .font(PoirotTheme.Typography.tiny)
                     .foregroundStyle(
@@ -419,7 +479,8 @@ private struct MemoryCard: View {
     }
 
     private var projectName: String {
-        appState.projects.first(where: { $0.id == memory.projectID })?.name
+        if let label = memory.sourceLabel { return label }
+        return appState.projects.first(where: { $0.id == memory.projectID })?.name
             ?? memory.projectID.split(separator: "-").last.map(String.init)
             ?? memory.projectID
     }

@@ -1,3 +1,4 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
 
@@ -19,9 +20,9 @@ struct SettingsView: View {
                     Label("Viewer", systemImage: "eye")
                 }
 
-            UsageSettingsView()
+            MemorySettingsView()
                 .tabItem {
-                    Label("Usage", systemImage: "gauge.with.dots.needle.bottom.50percent")
+                    Label("Memory", systemImage: "brain.head.profile")
                 }
 
             MenuBarSettingsView()
@@ -33,56 +34,77 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Usage
+// MARK: - Memory
 
-private struct UsageSettingsView: View {
-    @Environment(UsageStore.self)
-    private var usageStore
-    @Environment(\.provider)
-    private var provider
-
-    private var intervalBinding: Binding<UsageRefreshInterval> {
-        Binding(
-            get: { usageStore.refreshInterval },
-            set: { usageStore.setRefreshInterval($0) }
-        )
-    }
+private struct MemorySettingsView: View {
+    @Environment(MemorySourcesStore.self)
+    private var memorySources
+    @Environment(AppState.self)
+    private var appState
 
     var body: some View {
         VStack(spacing: 0) {
-            if provider.supports(.usage) {
-                settingsRow {
-                    Text("Auto-Refresh:")
-                } control: {
-                    Picker("", selection: intervalBinding) {
-                        ForEach(UsageRefreshInterval.allCases) { option in
-                            Text(option.label).tag(option)
+            settingsRow(alignment: .top) {
+                Text("Extra Folders:")
+            } control: {
+                VStack(alignment: .leading, spacing: 8) {
+                    if memorySources.folders.isEmpty {
+                        // swiftlint:disable:next line_length
+                        Text("No extra folders yet. Add one to show its `.md` files in the Memory tab, alongside your project memory.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        ForEach(memorySources.folders, id: \.self) { url in
+                            HStack(spacing: 8) {
+                                Image(systemName: "folder")
+                                    .foregroundStyle(.secondary)
+                                Text(url.path)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .help(url.path)
+                                Spacer(minLength: 8)
+                                Button {
+                                    memorySources.remove(url)
+                                    syncMemoryCount()
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove folder")
+                            }
                         }
                     }
-                    .labelsHidden()
-                    .frame(width: 200)
-                }
 
-                settingsRow {
-                    Text("")
-                } control: {
-                    Text(usageStore.refreshInterval == .manual
-                        ? "Usage updates only when you tap refresh."
-                        : "Poirot re-fetches your usage \(usageStore.refreshInterval.label.lowercased()) while it's open.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    Button(action: addFolders) {
+                        Label("Add Folder…", systemImage: "plus")
+                    }
                 }
-            } else {
-                Text("Usage limits aren't available for this provider.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: 340, alignment: .leading)
             }
 
             Spacer()
         }
         .padding(.vertical, 20)
         .padding(.horizontal, 32)
+    }
+
+    private func addFolders() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Add"
+        panel.message = "Choose folders whose Markdown files should appear in the Memory tab."
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls { memorySources.add(url) }
+        syncMemoryCount()
+    }
+
+    private func syncMemoryCount() {
+        appState.sidebarCounts[NavigationItem.memory.id] = ClaudeConfigLoader.totalMemoryFileCount()
     }
 }
 
