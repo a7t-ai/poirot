@@ -5,7 +5,7 @@ import Observation
 /// created in `PoirotApp` and injected into both the analytics dashboard and the menu bar.
 ///
 /// Usage is **opt-in** and requests use a token the user generates with `claude setup-token`
-/// and pastes into Poirot (stored in Poirot's own Keychain item — see `PoirotTokenStore`).
+/// and pastes into Poirot (stored in Poirot's local token file — see `PoirotTokenStore`).
 /// Fetches happen only on an explicit user action (Enable / Load / Refresh) or the background
 /// poll once `.loaded` — never on appear, tab-switch, or launch. The last good snapshot is
 /// persisted (just utilization + reset times, all local), so on relaunch the gauges show from
@@ -143,7 +143,7 @@ final class UsageStore {
 
     // MARK: - Token
 
-    /// Save the OAuth token (from `claude setup-token`) into Poirot's own Keychain item and, if
+    /// Save the OAuth token (from `claude setup-token`) into Poirot's local token file and, if
     /// usage is already enabled, load immediately with it. Blank input is ignored.
     func saveToken(_ token: String) async {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)

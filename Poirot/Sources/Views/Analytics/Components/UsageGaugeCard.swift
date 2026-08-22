@@ -236,7 +236,7 @@ struct UsageDisclaimer: View {
 
             VStack(alignment: .leading, spacing: PoirotTheme.Spacing.xxs) {
                 // swiftlint:disable:next line_length
-                Text("Poirot uses a token you generate with `claude setup-token`, stored in your Mac's Keychain, to ask Anthropic directly for your usage. Nothing leaves your Mac — no servers, no tracking, no analytics.")
+                Text("Poirot uses a token you generate with `claude setup-token`, stored locally on your Mac, to ask Anthropic directly for your usage. Nothing leaves your Mac — no servers, no tracking, no analytics.")
                     .font(PoirotTheme.Typography.micro)
                     .foregroundStyle(PoirotTheme.Colors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

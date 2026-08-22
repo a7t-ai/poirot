@@ -2,7 +2,7 @@ import Foundation
 
 /// Fetches subscription rate-limit usage from Claude's OAuth usage endpoint, using the token
 /// the user generates with `claude setup-token` and pastes into Poirot. No login flow, no API
-/// key — the token is read from Poirot's own Keychain item (see `PoirotTokenStore`).
+/// key — the token is read from Poirot's local token file (see `PoirotTokenStore`).
 nonisolated struct ClaudeUsageLoader: UsageLoading {
     static let endpoint = "https://api.anthropic.com/api/oauth/usage"
     /// Beta header the OAuth usage endpoint requires.
@@ -16,7 +16,7 @@ nonisolated struct ClaudeUsageLoader: UsageLoading {
     }
 
     nonisolated func loadUsage() async -> UsageResult {
-        // Reads Poirot's own Keychain item, which Poirot owns — no authorization prompt.
+        // Reads Poirot's local token file — no Keychain, so no authorization prompt.
         guard let token = tokenStore.read(), !token.isEmpty else {
             return .unauthenticated
         }
