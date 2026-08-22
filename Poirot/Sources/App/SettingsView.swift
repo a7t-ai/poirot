@@ -25,121 +25,12 @@ struct SettingsView: View {
                     Label("Memory", systemImage: "brain.head.profile")
                 }
 
-            UsageSettingsView()
-                .tabItem {
-                    Label("Usage", systemImage: "gauge.with.dots.needle.bottom.50percent")
-                }
-
             MenuBarSettingsView()
                 .tabItem {
                     Label("Menu Bar", systemImage: "menubar.rectangle")
                 }
         }
         .frame(width: 620, height: 500)
-    }
-}
-
-// MARK: - Usage
-
-private struct UsageSettingsView: View {
-    @Environment(UsageStore.self)
-    private var usageStore
-    @Environment(\.provider)
-    private var provider
-
-    @State
-    private var tokenInput = ""
-
-    private var intervalBinding: Binding<UsageRefreshInterval> {
-        Binding(
-            get: { usageStore.refreshInterval },
-            set: { usageStore.setRefreshInterval($0) }
-        )
-    }
-
-    private var trimmedToken: String {
-        tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private func saveToken() {
-        let token = trimmedToken
-        guard !token.isEmpty else { return }
-        tokenInput = ""
-        Task { await usageStore.saveToken(token) }
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            if provider.supports(.usage) {
-                settingsRow {
-                    Text("Usage Token:")
-                } control: {
-                    HStack(spacing: 8) {
-                        SecureField("Paste token from claude setup-token", text: $tokenInput)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 240)
-                            .onSubmit(saveToken)
-                        Button("Save", action: saveToken)
-                            .disabled(trimmedToken.isEmpty)
-                    }
-                }
-
-                settingsRow {
-                    Text("")
-                } control: {
-                    if usageStore.hasToken {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.seal.fill")
-                                .foregroundStyle(.green)
-                            Text("Token saved")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Button("Remove", action: usageStore.clearToken)
-                                .buttonStyle(.link)
-                                .font(.caption)
-                        }
-                    } else {
-                        Text("Run `claude setup-token` in your terminal, then paste the token here.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                settingsDivider
-
-                settingsRow {
-                    Text("Auto-Refresh:")
-                } control: {
-                    Picker("", selection: intervalBinding) {
-                        ForEach(UsageRefreshInterval.allCases) { option in
-                            Text(option.label).tag(option)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 200)
-                }
-
-                settingsRow {
-                    Text("")
-                } control: {
-                    Text(usageStore.refreshInterval == .manual
-                        ? "Usage updates only when you tap refresh."
-                        : "Poirot re-fetches your usage \(usageStore.refreshInterval.label.lowercased()) while it's open.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            } else {
-                Text("Usage limits aren't available for this provider.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-
-            Spacer()
-        }
-        .padding(.vertical, 20)
-        .padding(.horizontal, 32)
     }
 }
 
