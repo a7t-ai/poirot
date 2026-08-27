@@ -25,6 +25,26 @@ nonisolated enum ClaudeModelCatalog {
     /// Curated current models, most capable first. The copy is a starting point — tweak freely.
     static let curated: [ClaudeModelInfo] = [
         ClaudeModelInfo(
+            displayName: "Fable 5",
+            description: "Mythos-class model for ambitious, days-long coding and knowledge work.",
+            strengths: [
+                "Ambitious multi-day coding",
+                "Large-scale migrations",
+                "Vision, documents, and diagrams",
+                "Long-horizon agentic work",
+            ]
+        ),
+        ClaudeModelInfo(
+            displayName: "Opus 5",
+            description: "Everyday flagship that approaches Fable 5 on coding and knowledge work at half the price.",
+            strengths: [
+                "Complex agentic coding",
+                "Root-cause debugging",
+                "Knowledge work and analysis",
+                "Self-verifying iteration",
+            ]
+        ),
+        ClaudeModelInfo(
             displayName: "Opus 4.8",
             description: "Most capable Claude model for complex reasoning, large-codebase work, and multi-step tasks.",
             strengths: [
@@ -54,23 +74,13 @@ nonisolated enum ClaudeModelCatalog {
                 "Low-latency workflows",
             ]
         ),
-        ClaudeModelInfo(
-            displayName: "Fable 5",
-            description: "Anthropic's most advanced model for demanding reasoning and long-horizon agentic work.",
-            strengths: [
-                "Ambitious coding projects",
-                "Long-horizon agentic work",
-                "Deep research and analysis",
-                "Document and diagram understanding",
-            ]
-        ),
     ]
 
     /// Display names of the curated models — the baseline list used by search and counts.
     static var curatedNames: [String] { curated.map(\.displayName) }
 
     /// Model Poirot assumes as the default when none is configured.
-    static let defaultModelName = "Opus 4.8"
+    static let defaultModelName = "Opus 5"
 
     /// Maps a raw session model id to a friendly display name, e.g. `claude-opus-4-8-20260514`
     /// → `Opus 4.8` and the older `claude-3-5-sonnet-20241022` → `Sonnet 3.5`. Version digits are

@@ -5,6 +5,7 @@ import Testing
 struct ClaudeModelCatalogTests {
     @Test
     func friendlyName_mapsCurrentIds() {
+        #expect(ClaudeModelCatalog.friendlyName(for: "claude-opus-5") == "Opus 5")
         #expect(ClaudeModelCatalog.friendlyName(for: "claude-opus-4-8-20260514") == "Opus 4.8")
         #expect(ClaudeModelCatalog.friendlyName(for: "claude-sonnet-5-20251101") == "Sonnet 5")
         #expect(ClaudeModelCatalog.friendlyName(for: "claude-haiku-4-5-20251001") == "Haiku 4.5")
@@ -26,14 +27,33 @@ struct ClaudeModelCatalogTests {
     @Test
     func models_includeAllCurated_evenWithNoSessions() {
         let names = ClaudeModelCatalog.models(discoveredIds: []).map(\.displayName)
+        #expect(names.contains("Opus 5"))
         #expect(names.contains("Fable 5"))
         #expect(names.contains("Opus 4.8"))
         #expect(names.count == ClaudeModelCatalog.curated.count)
     }
 
     @Test
+    func opus5_hasDescriptionAndStrengths() {
+        let opus5 = ClaudeModelCatalog.curated.first { $0.displayName == "Opus 5" }
+        #expect(opus5 != nil)
+        #expect(opus5?.description.isEmpty == false)
+        #expect(opus5?.strengths.count == 4)
+    }
+
+    @Test
+    func fable5_hasDescriptionAndStrengths() {
+        let fable5 = ClaudeModelCatalog.curated.first { $0.displayName == "Fable 5" }
+        #expect(fable5 != nil)
+        #expect(fable5?.description.isEmpty == false)
+        #expect(fable5?.strengths.count == 4)
+        #expect(ClaudeModelCatalog.curated.first?.displayName == "Fable 5")
+    }
+
+    @Test
     func models_appendDiscovered_withoutDuplicatingCurated() {
         let models = ClaudeModelCatalog.models(discoveredIds: [
+            "claude-opus-5",              // already curated -> not duplicated
             "claude-opus-4-8-20260514",   // already curated -> not duplicated
             "claude-3-5-sonnet-20241022", // discovered -> appended once
             "claude-3-5-sonnet-20241022", // duplicate -> deduped
@@ -41,6 +61,7 @@ struct ClaudeModelCatalogTests {
         ])
         let names = models.map(\.displayName)
 
+        #expect(names.filter { $0 == "Opus 5" }.count == 1)
         #expect(names.filter { $0 == "Opus 4.8" }.count == 1)
         #expect(names.filter { $0 == "Sonnet 3.5" }.count == 1)
         // Curated set plus exactly one newly-discovered model.

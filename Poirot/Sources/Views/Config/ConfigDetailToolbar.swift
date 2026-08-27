@@ -34,7 +34,9 @@ struct ConfigToolbarActions: View {
                 formatTapped = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { formatTapped = false }
             } label: {
-                Image(systemName: state.configDetailFormatted ? "doc.plaintext" : "text.document")
+                Image(systemName: state.configDetailFormatted
+                    ? "chevron.left.forwardslash.chevron.right"
+                    : "textformat")
                     .contentTransition(.symbolEffect(.replace))
             }
             .help(state.configDetailFormatted ? "Show Raw" : "Show Formatted")

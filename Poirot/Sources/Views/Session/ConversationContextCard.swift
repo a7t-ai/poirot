@@ -70,7 +70,9 @@ struct ConversationContextCard: View {
                 legend("In", context.inputTokens, PoirotTheme.Colors.teal)
                 legend("Out", context.outputTokens, PoirotTheme.Colors.accent)
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var tokenMixBar: some View {
@@ -97,6 +99,8 @@ struct ConversationContextCard: View {
             Text("\(label) \(format(value))")
                 .font(PoirotTheme.Typography.micro)
                 .foregroundStyle(PoirotTheme.Colors.textTertiary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
     }
 
