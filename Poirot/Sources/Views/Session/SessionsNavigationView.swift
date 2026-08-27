@@ -269,12 +269,10 @@ struct SessionsNavigationView: View {
     private var detailPane: some View {
         if let session = appState.selectedSession {
             if showTimeline, let group = sessionGroup(for: session) {
-                SessionTimelineView(group: group)
-                    .transition(.opacity)
-                    .overlay(alignment: .topTrailing) {
-                        timelineToggleButton
-                            .padding(PoirotTheme.Spacing.md)
-                    }
+                SessionTimelineView(group: group) {
+                    timelineToggleButton
+                }
+                .transition(.opacity)
             } else if appState.isShowingFileHistory {
                 FileHistoryView(session: session)
                     .transition(.opacity)

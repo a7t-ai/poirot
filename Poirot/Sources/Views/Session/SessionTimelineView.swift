@@ -1,8 +1,17 @@
 import Charts
 import SwiftUI
 
-struct SessionTimelineView: View {
+struct SessionTimelineView<Trailing: View>: View {
     let group: SessionGroup
+    let trailing: Trailing
+
+    init(
+        group: SessionGroup,
+        @ViewBuilder trailing: () -> Trailing
+    ) {
+        self.group = group
+        self.trailing = trailing()
+    }
 
     @Environment(AppState.self)
     private var appState
@@ -60,12 +69,12 @@ struct SessionTimelineView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
+        HStack(spacing: PoirotTheme.Spacing.sm) {
             Label("Session Timeline", systemImage: "chart.bar.xaxis")
                 .font(PoirotTheme.Typography.bodyMedium)
                 .foregroundStyle(PoirotTheme.Colors.textPrimary)
 
-            Spacer()
+            Spacer(minLength: PoirotTheme.Spacing.sm)
 
             Text("\(group.agentCount) agents")
                 .font(PoirotTheme.Typography.tiny)
@@ -75,6 +84,8 @@ struct SessionTimelineView: View {
                 .background(
                     Capsule().fill(PoirotTheme.Colors.purple.opacity(0.15))
                 )
+
+            trailing
         }
         .padding(.horizontal, PoirotTheme.Spacing.lg)
         .padding(.vertical, PoirotTheme.Spacing.md)
@@ -172,6 +183,12 @@ struct SessionTimelineView: View {
         case "plan": return PoirotTheme.Colors.green
         default: return PoirotTheme.Colors.purple
         }
+    }
+}
+
+extension SessionTimelineView where Trailing == EmptyView {
+    init(group: SessionGroup) {
+        self.init(group: group) { EmptyView() }
     }
 }
 
