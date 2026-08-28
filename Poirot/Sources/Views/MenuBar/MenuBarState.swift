@@ -7,14 +7,11 @@ final class MenuBarState {
     var searchQuery: String = ""
     var stats: StatsCache?
 
-    func loadStats() {
-        Task {
-            let projectsPath = SessionLoader().claudeProjectsPath
-            let loaded = await Task.detached {
-                StatsCacheLoader.loadAnalytics(projectsPath: projectsPath)
-            }.value
-            stats = loaded
-        }
+    func loadStats() async {
+        let loaded = await Task.detached {
+            StatsCacheLoader.loadAnalytics(projectsPath: SessionLoader().claudeProjectsPath)
+        }.value
+        stats = loaded
     }
 
     var filteredSessions: [(project: Project, session: Session)] {

@@ -22,9 +22,9 @@ struct MenuBarView: View {
         }
         .frame(width: 320)
         .background(PoirotTheme.Colors.bgCard)
-        .onAppear {
+        .task {
             menuBarState.loadRecentSessions(from: appState.projects)
-            menuBarState.loadStats()
+            await menuBarState.loadStats()
         }
     }
 
