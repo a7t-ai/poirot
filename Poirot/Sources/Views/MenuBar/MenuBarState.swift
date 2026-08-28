@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 
+@MainActor
 @Observable
 final class MenuBarState {
     var recentSessions: [(project: Project, session: Session)] = []
