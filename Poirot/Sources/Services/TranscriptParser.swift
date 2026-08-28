@@ -317,7 +317,8 @@ nonisolated struct TranscriptParser {
                 if !seenMsgIds.contains(msgId) {
                     seenMsgIds.insert(msgId)
                     if let usage = message["usage"] as? [String: Any] {
-                        totalTokens += (usage["input_tokens"] as? Int ?? 0) + (usage["output_tokens"] as? Int ?? 0)
+                        totalTokens += StatsComputer.intValue(from: usage["input_tokens"])
+                            + StatsComputer.intValue(from: usage["output_tokens"])
                     }
                 }
             }
@@ -544,10 +545,10 @@ nonisolated struct TranscriptParser {
 
     private func parseUsage(_ usage: [String: Any]?) -> TokenUsage? {
         guard let usage else { return nil }
-        let input = usage["input_tokens"] as? Int ?? 0
-        let output = usage["output_tokens"] as? Int ?? 0
-        let cacheRead = usage["cache_read_input_tokens"] as? Int ?? 0
-        let cacheCreation = usage["cache_creation_input_tokens"] as? Int ?? 0
+        let input = StatsComputer.intValue(from: usage["input_tokens"])
+        let output = StatsComputer.intValue(from: usage["output_tokens"])
+        let cacheRead = StatsComputer.intValue(from: usage["cache_read_input_tokens"])
+        let cacheCreation = StatsComputer.intValue(from: usage["cache_creation_input_tokens"])
         return TokenUsage(input: input, output: output, cacheRead: cacheRead, cacheCreation: cacheCreation)
     }
 }

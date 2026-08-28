@@ -8,7 +8,13 @@ final class MenuBarState {
     var stats: StatsCache?
 
     func loadStats() {
-        stats = StatsCacheLoader.load()
+        Task {
+            let projectsPath = SessionLoader().claudeProjectsPath
+            let loaded = await Task.detached {
+                StatsCacheLoader.loadAnalytics(projectsPath: projectsPath)
+            }.value
+            stats = loaded
+        }
     }
 
     var filteredSessions: [(project: Project, session: Session)] {

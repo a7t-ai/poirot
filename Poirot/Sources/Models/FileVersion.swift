@@ -49,7 +49,10 @@ nonisolated struct FileHistoryEntry: Identifiable, Hashable {
     init(fileName: String, versions: [FileVersion]) {
         self.id = fileName
         self.fileName = fileName
-        self.versions = versions.sorted { $0.version < $1.version }
+        self.versions = versions.sorted { lhs, rhs in
+            if lhs.version != rhs.version { return lhs.version < rhs.version }
+            return lhs.backupTime < rhs.backupTime
+        }
     }
 
     func hash(into hasher: inout Hasher) {

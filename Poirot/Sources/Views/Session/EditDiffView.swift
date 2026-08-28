@@ -21,6 +21,12 @@ struct EditDiffView: View {
 
     private static let maxLines = 5000
 
+    /// Must change when either side of the diff changes — `ObjectIdentifier(Self.self)`
+    /// never does, so switching files/versions previously kept the old hunks on screen.
+    private var diffIdentity: String {
+        "\(filePath ?? "")|\(oldString.hashValue)|\(newString.hashValue)"
+    }
+
     private var diffLines: [DiffLine] {
         computedDiff ?? []
     }
@@ -47,8 +53,10 @@ struct EditDiffView: View {
             } else {
                 ZStack(alignment: .topTrailing) {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        ForEach(diffLines) { line in
-                            diffLineRow(line)
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(diffLines) { line in
+                                diffLineRow(line)
+                            }
                         }
                     }
                     .padding(.vertical, PoirotTheme.Spacing.sm)
@@ -67,7 +75,8 @@ struct EditDiffView: View {
             }
         }
         .background(PoirotTheme.Colors.bgCode)
-        .task(id: ObjectIdentifier(Self.self)) {
+        .task(id: diffIdentity) {
+            computedDiff = nil
             let old = oldString
             let new = newString
             let limit = Self.maxLines

@@ -15,6 +15,12 @@ struct FileHistoryView: View {
     @State
     private var fileContents: [String: String] = [:]
 
+    /// Keys whose backup has been fetched. Distinguishes "not loaded yet" from
+    /// a legitimately empty file — treating the former as `""` produced bogus
+    /// full-file add/delete diffs while the other side was still loading.
+    @State
+    private var loadedContentKeys: Set<String> = []
+
     @State
     private var isLoading = true
 
@@ -238,10 +244,10 @@ struct FileHistoryView: View {
             if effectiveIndex > 0 {
                 let previousVersion = entry.versions[effectiveIndex - 1]
                 let previousKey = "\(session.id)/\(previousVersion.backupFileName)"
-                let oldContent = fileContents[previousKey] ?? ""
-                let newContent = fileContents[currentKey] ?? ""
+                let ready = loadedContentKeys.contains(currentKey)
+                    && loadedContentKeys.contains(previousKey)
 
-                if oldContent.isEmpty, newContent.isEmpty {
+                if !ready {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .task(id: currentKey) {
@@ -250,29 +256,28 @@ struct FileHistoryView: View {
                 } else {
                     ScrollView {
                         EditDiffView(
-                            oldString: oldContent,
-                            newString: newContent,
+                            oldString: fileContents[previousKey] ?? "",
+                            newString: fileContents[currentKey] ?? "",
                             filePath: entry.fileName
                         )
+                        .id("\(previousKey)|\(currentKey)")
                     }
                 }
+            } else if !loadedContentKeys.contains(currentKey) {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .task(id: currentKey) {
+                        await loadVersionContent(entry: entry, versionIndex: effectiveIndex)
+                    }
             } else {
                 // First version — show full content as "added"
-                let content = fileContents[currentKey] ?? ""
-                if content.isEmpty {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .task(id: currentKey) {
-                            await loadVersionContent(entry: entry, versionIndex: effectiveIndex)
-                        }
-                } else {
-                    ScrollView {
-                        EditDiffView(
-                            oldString: "",
-                            newString: content,
-                            filePath: entry.fileName
-                        )
-                    }
+                ScrollView {
+                    EditDiffView(
+                        oldString: "",
+                        newString: fileContents[currentKey] ?? "",
+                        filePath: entry.fileName
+                    )
+                    .id(currentKey)
                 }
             }
         }
@@ -352,22 +357,24 @@ struct FileHistoryView: View {
         // Load the selected version
         let version = entry.versions[versionIndex]
         let key = "\(sessionId)/\(version.backupFileName)"
-        if fileContents[key] == nil {
+        if !loadedContentKeys.contains(key) {
             let content = await Task.detached {
                 loader.loadFileContent(for: sessionId, backupFileName: version.backupFileName)
             }.value
             fileContents[key] = content ?? ""
+            loadedContentKeys.insert(key)
         }
 
         // Also load previous version for diff
         if versionIndex > 0 {
             let prev = entry.versions[versionIndex - 1]
             let prevKey = "\(sessionId)/\(prev.backupFileName)"
-            if fileContents[prevKey] == nil {
+            if !loadedContentKeys.contains(prevKey) {
                 let content = await Task.detached {
                     loader.loadFileContent(for: sessionId, backupFileName: prev.backupFileName)
                 }.value
                 fileContents[prevKey] = content ?? ""
+                loadedContentKeys.insert(prevKey)
             }
         }
     }

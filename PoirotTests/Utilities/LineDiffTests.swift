@@ -102,4 +102,25 @@ struct LineDiffTests {
         #expect(lines[0].kind == .context)
         #expect(lines[0].text.isEmpty)
     }
+
+    @Test
+    func prefixAndSuffixPreserved_middleReplacement() {
+        let old = "keep\nchange me\nalso keep"
+        let new = "keep\nchanged\nalso keep"
+        let lines = LineDiff.diff(old: old, new: new)
+        #expect(lines.first?.kind == .context)
+        #expect(lines.first?.text == "keep")
+        #expect(lines.last?.kind == .context)
+        #expect(lines.last?.text == "also keep")
+        #expect(lines.contains { $0.kind == .removed && $0.text == "change me" })
+        #expect(lines.contains { $0.kind == .added && $0.text == "changed" })
+    }
+
+    @Test
+    func trailingInsertion_doesNotDropContext() {
+        let lines = LineDiff.diff(old: "a\nb", new: "a\nb\nc")
+        #expect(lines.map(\.kind) == [.context, .context, .added])
+        #expect(lines.map(\.text) == ["a", "b", "c"])
+        #expect(lines[2].newLineNumber == 3)
+    }
 }

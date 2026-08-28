@@ -41,7 +41,7 @@ nonisolated enum LineDiff {
         var newIdx = 0
 
         while oldIdx < oldLines.count || newIdx < newLines.count {
-            if let text = removals[oldIdx] {
+            if oldIdx < oldLines.count, let text = removals[oldIdx] {
                 result.append(DiffLine(
                     id: result.count,
                     kind: .removed,
@@ -50,7 +50,7 @@ nonisolated enum LineDiff {
                     newLineNumber: nil
                 ))
                 oldIdx += 1
-            } else if let text = insertions[newIdx] {
+            } else if newIdx < newLines.count, let text = insertions[newIdx] {
                 result.append(DiffLine(
                     id: result.count,
                     kind: .added,
@@ -59,7 +59,7 @@ nonisolated enum LineDiff {
                     newLineNumber: newIdx + 1
                 ))
                 newIdx += 1
-            } else {
+            } else if oldIdx < oldLines.count, newIdx < newLines.count {
                 result.append(DiffLine(
                     id: result.count,
                     kind: .context,
@@ -68,6 +68,24 @@ nonisolated enum LineDiff {
                     newLineNumber: newIdx + 1
                 ))
                 oldIdx += 1
+                newIdx += 1
+            } else if oldIdx < oldLines.count {
+                result.append(DiffLine(
+                    id: result.count,
+                    kind: .removed,
+                    text: oldLines[oldIdx],
+                    oldLineNumber: oldIdx + 1,
+                    newLineNumber: nil
+                ))
+                oldIdx += 1
+            } else {
+                result.append(DiffLine(
+                    id: result.count,
+                    kind: .added,
+                    text: newLines[newIdx],
+                    oldLineNumber: nil,
+                    newLineNumber: newIdx + 1
+                ))
                 newIdx += 1
             }
         }

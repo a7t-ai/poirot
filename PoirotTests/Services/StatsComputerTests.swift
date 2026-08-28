@@ -64,4 +64,70 @@ struct StatsComputerTests {
     func compute_missingPath_returnsNil() {
         #expect(StatsComputer.compute(projectsPath: "/no/such/dir/\(UUID().uuidString)") == nil)
     }
+
+    @Test
+    func compute_includesTokensOnLaterDays() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("statscomp-days-\(UUID().uuidString)")
+        let projectDir = root.appendingPathComponent("-Users-test-proj")
+        try fm.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let sessionId = UUID().uuidString
+        let jsonl = """
+        {"type":"user","timestamp":"2026-03-15T10:00:00.000Z","uuid":"u1","message":{"role":"user","content":"hi"}}
+        {"type":"assistant","timestamp":"2026-03-15T10:00:05.000Z","message":{"id":"a1","model":"claude-opus-4-6","usage":{"input_tokens":10,"output_tokens":5},"content":[]}}
+        {"type":"user","timestamp":"2026-08-20T10:00:00.000Z","uuid":"u2","message":{"role":"user","content":"later"}}
+        {"type":"assistant","timestamp":"2026-08-20T10:00:05.000Z","message":{"id":"a2","model":"claude-opus-4-6","usage":{"input_tokens":40,"output_tokens":20},"content":[]}}
+        """
+        try jsonl.write(
+            to: projectDir.appendingPathComponent("\(sessionId).jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let stats = try #require(StatsComputer.compute(projectsPath: root.path))
+        let dates = Set(stats.dailyModelTokens.map(\.date))
+        #expect(dates.contains("2026-03-15"))
+        #expect(dates.contains("2026-08-20"))
+        let march = try #require(stats.dailyModelTokens.first { $0.date == "2026-03-15" })
+        let august = try #require(stats.dailyModelTokens.first { $0.date == "2026-08-20" })
+        #expect(march.tokensByModel["claude-opus-4-6"] == 15)
+        #expect(august.tokensByModel["claude-opus-4-6"] == 60)
+    }
+
+    @Test
+    func compute_acceptsFloatingPointTokenCounts() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("statscomp-float-\(UUID().uuidString)")
+        let projectDir = root.appendingPathComponent("-Users-test-proj")
+        try fm.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let sessionId = UUID().uuidString
+        let jsonl = """
+        {"type":"user","timestamp":"2026-08-20T10:00:00.000Z","uuid":"u1","message":{"role":"user","content":"hi"}}
+        {"type":"assistant","timestamp":"2026-08-20T10:00:05.000Z","message":{"id":"a1","model":"claude-opus-4-6","usage":{"input_tokens":10.0,"output_tokens":5.0,"cache_read_input_tokens":100.0},"content":[]}}
+        """
+        try jsonl.write(
+            to: projectDir.appendingPathComponent("\(sessionId).jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let stats = try #require(StatsComputer.compute(projectsPath: root.path))
+        let model = try #require(stats.modelUsage["claude-opus-4-6"])
+        #expect(model.inputTokens == 10)
+        #expect(model.outputTokens == 5)
+        #expect(model.cacheReadInputTokens == 100)
+    }
+
+    @Test
+    func intValue_readsNSNumberAndIgnoresBool() {
+        #expect(StatsComputer.intValue(from: 42) == 42)
+        #expect(StatsComputer.intValue(from: 7.0) == 7)
+        #expect(StatsComputer.intValue(from: true) == 0)
+        #expect(StatsComputer.intValue(from: nil) == 0)
+        #expect(StatsComputer.intValue(from: "nope") == 0)
+    }
 }

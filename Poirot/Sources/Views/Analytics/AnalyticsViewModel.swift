@@ -77,10 +77,10 @@ final class AnalyticsViewModel {
     func loadStats() async {
         isLoading = true
         let loaded = await Task.detached {
-            // Prefer Claude Code's pre-computed cache; if it isn't written on this setup,
-            // compute the same stats locally from the session transcripts.
-            StatsCacheLoader.load()
-                ?? StatsComputer.compute(projectsPath: SessionLoader().claudeProjectsPath)
+            // Use Claude Code's cache only when it covers the latest transcripts;
+            // otherwise scan JSONL locally. The cache is known to freeze while
+            // sessions continue (token charts stop months before the session list).
+            StatsCacheLoader.loadAnalytics(projectsPath: SessionLoader().claudeProjectsPath)
         }.value
         withAnimation(.easeInOut(duration: 0.4)) {
             stats = loaded

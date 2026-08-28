@@ -217,4 +217,141 @@ struct StatsCacheTests {
         let result = StatsCacheLoader.load(from: "/nonexistent/path/stats-cache.json")
         #expect(result == nil)
     }
+
+    // MARK: - Staleness
+
+    @Test
+    func isStale_tokensLagActivity_isTrue() {
+        let cache = Self.makeCache(
+            lastComputedDate: "2026-08-28",
+            dailyActivity: [
+                .init(date: "2026-03-01", messageCount: 1, sessionCount: 1, toolCallCount: 0),
+                .init(date: "2026-08-28", messageCount: 2, sessionCount: 1, toolCallCount: 0),
+            ],
+            dailyModelTokens: [
+                .init(date: "2026-03-01", tokensByModel: ["claude-opus-4-6": 100]),
+            ]
+        )
+        #expect(StatsCacheLoader.isStale(cache, latestSessionDay: "2026-08-28"))
+        #expect(StatsCacheLoader.isStale(cache, latestSessionDay: nil))
+    }
+
+    @Test
+    func isStale_lastComputedBeforeLatestSession_isTrue() {
+        let cache = Self.makeCache(
+            lastComputedDate: "2026-03-15",
+            dailyActivity: [
+                .init(date: "2026-03-15", messageCount: 10, sessionCount: 1, toolCallCount: 1),
+            ],
+            dailyModelTokens: [
+                .init(date: "2026-03-15", tokensByModel: ["claude-opus-4-6": 50]),
+            ]
+        )
+        #expect(StatsCacheLoader.isStale(cache, latestSessionDay: "2026-08-28"))
+        #expect(!StatsCacheLoader.isStale(cache, latestSessionDay: "2026-03-15"))
+        #expect(!StatsCacheLoader.isStale(cache, latestSessionDay: nil))
+    }
+
+    @Test
+    func loadAnalytics_staleCache_recomputesFromTranscripts() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("stale-cache-\(UUID().uuidString)")
+        let projectDir = root.appendingPathComponent("projects").appendingPathComponent("proj")
+        try fm.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let cache = Self.makeCache(
+            lastComputedDate: "2026-03-15",
+            dailyActivity: [
+                .init(date: "2026-03-15", messageCount: 1, sessionCount: 1, toolCallCount: 0),
+            ],
+            dailyModelTokens: [
+                .init(date: "2026-03-15", tokensByModel: ["claude-opus-4-6": 999]),
+            ]
+        )
+        let cacheURL = root.appendingPathComponent("stats-cache.json")
+        try JSONEncoder().encode(cache).write(to: cacheURL)
+
+        let sessionId = UUID().uuidString
+        let jsonl = """
+        {"type":"user","timestamp":"2026-08-20T10:00:00.000Z","uuid":"u1","message":{"role":"user","content":"hi"}}
+        {"type":"assistant","timestamp":"2026-08-20T10:00:05.000Z","message":{"id":"a1","model":"claude-opus-4-6","usage":{"input_tokens":7,"output_tokens":3},"content":[]}}
+        """
+        try jsonl.write(
+            to: projectDir.appendingPathComponent("\(sessionId).jsonl"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let stats = try #require(StatsCacheLoader.loadAnalytics(
+            cachePath: cacheURL.path,
+            projectsPath: root.appendingPathComponent("projects").path
+        ))
+
+        #expect(stats.dailyModelTokens.contains { $0.date == "2026-08-20" })
+        #expect(!stats.dailyModelTokens.contains { $0.date == "2026-03-15" && $0.tokensByModel["claude-opus-4-6"] == 999 })
+        let model = try #require(stats.modelUsage["claude-opus-4-6"])
+        #expect(model.inputTokens == 7)
+        #expect(model.outputTokens == 3)
+    }
+
+    @Test
+    func loadAnalytics_freshCache_isKept() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("fresh-cache-\(UUID().uuidString)")
+        let projectDir = root.appendingPathComponent("projects").appendingPathComponent("proj")
+        try fm.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+
+        let sessionId = UUID().uuidString
+        try #"{"type":"user","timestamp":"2026-08-20T10:00:00.000Z","uuid":"u1","message":{"role":"user","content":"hi"}}"#
+            .write(to: projectDir.appendingPathComponent("\(sessionId).jsonl"), atomically: true, encoding: .utf8)
+
+        let latest = try #require(StatsComputer.latestSessionDay(
+            projectsPath: root.appendingPathComponent("projects").path
+        ))
+        let cache = Self.makeCache(
+            lastComputedDate: latest,
+            dailyActivity: [
+                .init(date: latest, messageCount: 42, sessionCount: 2, toolCallCount: 1),
+            ],
+            dailyModelTokens: [
+                .init(date: latest, tokensByModel: ["kept-model": 1234]),
+            ]
+        )
+        let cacheURL = root.appendingPathComponent("stats-cache.json")
+        try JSONEncoder().encode(cache).write(to: cacheURL)
+
+        let stats = try #require(StatsCacheLoader.loadAnalytics(
+            cachePath: cacheURL.path,
+            projectsPath: root.appendingPathComponent("projects").path
+        ))
+        #expect(stats.dailyModelTokens.first?.tokensByModel["kept-model"] == 1234)
+        #expect(stats.dailyActivity.first?.messageCount == 42)
+    }
+
+    private static func makeCache(
+        lastComputedDate: String,
+        dailyActivity: [StatsCache.DailyActivity],
+        dailyModelTokens: [StatsCache.DailyModelTokens]
+    ) -> StatsCache {
+        StatsCache(
+            version: 2,
+            lastComputedDate: lastComputedDate,
+            dailyActivity: dailyActivity,
+            dailyModelTokens: dailyModelTokens,
+            modelUsage: [:],
+            totalSessions: 1,
+            totalMessages: 1,
+            longestSession: StatsCache.LongestSession(
+                sessionId: "s",
+                duration: 1000,
+                messageCount: 1,
+                timestamp: "2026-03-15T00:00:00.000Z"
+            ),
+            firstSessionDate: "2026-03-15T00:00:00.000Z",
+            hourCounts: [:],
+            totalSpeculationTimeSavedMs: 0
+        )
+    }
 }

@@ -56,6 +56,43 @@ nonisolated enum StatsComputer {
         isoFractional.date(from: string) ?? isoPlain.date(from: string)
     }
 
+    /// Calendar day (`yyyy-MM-dd`, local) of the most recently modified UUID-named
+    /// session transcript. Used to detect a stale `stats-cache.json` without a full parse.
+    static func latestSessionDay(projectsPath: String) -> String? {
+        let fm = FileManager.default
+        guard let projectDirs = try? SessionLoader.projectDirectoryURLs(at: projectsPath) else {
+            return nil
+        }
+
+        var latest: Date?
+        for dir in projectDirs {
+            guard let files = try? fm.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+
+            for file in files where file.pathExtension == "jsonl"
+                && UUID(uuidString: file.deletingPathExtension().lastPathComponent) != nil {
+                let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))
+                    .flatMap(\.contentModificationDate)
+                if let modified {
+                    latest = latest.map { max($0, modified) } ?? modified
+                }
+            }
+        }
+
+        return latest.map { dayFormatter.string(from: $0) }
+    }
+
+    /// JSONSerialization numbers arrive as `NSNumber`; `as? Int` drops values that
+    /// were parsed as Double (and would otherwise count as zero tokens).
+    static func intValue(from value: Any?) -> Int {
+        guard let number = value as? NSNumber else { return 0 }
+        if CFGetTypeID(number) == CFBooleanGetTypeID() { return 0 }
+        return number.intValue
+    }
+
     // MARK: - Aggregate
 
     private struct Aggregate {
@@ -150,11 +187,13 @@ nonisolated enum StatsComputer {
             }
 
             guard let usage = message["usage"] as? [String: Any] else { return }
-            let input = usage["input_tokens"] as? Int ?? 0
-            let output = usage["output_tokens"] as? Int ?? 0
-            let cacheRead = usage["cache_read_input_tokens"] as? Int ?? 0
-            let cacheCreation = usage["cache_creation_input_tokens"] as? Int ?? 0
-            let webSearch = (usage["server_tool_use"] as? [String: Any])?["web_search_requests"] as? Int ?? 0
+            let input = StatsComputer.intValue(from: usage["input_tokens"])
+            let output = StatsComputer.intValue(from: usage["output_tokens"])
+            let cacheRead = StatsComputer.intValue(from: usage["cache_read_input_tokens"])
+            let cacheCreation = StatsComputer.intValue(from: usage["cache_creation_input_tokens"])
+            let webSearch = StatsComputer.intValue(
+                from: (usage["server_tool_use"] as? [String: Any])?["web_search_requests"]
+            )
 
             var entry = models[model] ?? Model()
             entry.input += input

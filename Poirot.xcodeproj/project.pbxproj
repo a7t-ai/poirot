@@ -228,6 +228,7 @@
 		F05D0DBED37E304DDF3484D8 /* MCPServersListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2398AF9EC1EE0C8BA32378CD /* MCPServersListView.swift */; };
 		F0D4AE4357EA33548A709274 /* ClaudeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F82822EC53E844CD8194319A /* ClaudeCommand.swift */; };
 		F30BC134CB3C0E01D70A080B /* PlansListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5C25A70D2FC3EFCA90CEA0 /* PlansListView.swift */; };
+		F39B37486FC23C7305E58BE9 /* FileHistoryLoaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25C88BEE6FB6AF73463FA1E2 /* FileHistoryLoaderTests.swift */; };
 		F585CF0AE96CBC12D1237E38 /* ConfigLayoutToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045EE6479D4BF42F64307F2C /* ConfigLayoutToolbar.swift */; };
 		F82DDDCA2B6023C499CDE14A /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBB3F1CDB4272B23A2CBE662 /* OnboardingView.swift */; };
 		FAA889E14339F39D8909BA94 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40A1EC4F14913B5233A7F0AF /* Message.swift */; };
@@ -280,6 +281,7 @@
 		206C5507435CF92778FB1288 /* TodoLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoLoaderTests.swift; sourceTree = "<group>"; };
 		2398AF9EC1EE0C8BA32378CD /* MCPServersListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPServersListView.swift; sourceTree = "<group>"; };
 		24F9810F9C17BBB0F14C2F45 /* OutputStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputStyle.swift; sourceTree = "<group>"; };
+		25C88BEE6FB6AF73463FA1E2 /* FileHistoryLoaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileHistoryLoaderTests.swift; sourceTree = "<group>"; };
 		26B9CD4BBB58483858519DD3 /* ScreenshotTests_EditDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotTests_EditDiff.swift; sourceTree = "<group>"; };
 		29D4BA557E8665179BB0D487 /* ClaudeModelCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeModelCatalogTests.swift; sourceTree = "<group>"; };
 		2D48378C53A7352CBE811B97 /* ClaudeSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeSettings.swift; sourceTree = "<group>"; };
@@ -725,6 +727,7 @@
 				97EAA7945B4609AD5C08EA3A /* ClaudeConfigLoaderMCPTests.swift */,
 				A11648778ECA1A82B16A76C9 /* DebugLogLoaderTests.swift */,
 				48726F95DF01F8902A2BB7CF /* FacetsLoaderTests.swift */,
+				25C88BEE6FB6AF73463FA1E2 /* FileHistoryLoaderTests.swift */,
 				1405C343F77EFFD935B27340 /* FrontmatterParserTests.swift */,
 				9919D9AADED6E3243644D940 /* HistoryLoaderTests.swift */,
 				72818A517BE04CA1CA1A39A0 /* MCPServerStatusCheckerTests.swift */,
@@ -1135,9 +1138,10 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2610;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = A32F86DA19D60564DE41D5C1 /* Build configuration list for PBXProject "Poirot" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -1152,6 +1156,7 @@
 				8878CB363D44491D8197343B /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 7217445ED195D60672E60744 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -1370,6 +1375,7 @@
 				D6DEC35A72B74C3273F7169A /* DebugLogLoaderTests.swift in Sources */,
 				691B10ABBFD3B341FC27C6B6 /* FacetsLoaderTests.swift in Sources */,
 				B727E2CB4DCCE8434FC58127 /* FacetsLoadingMock.swift in Sources */,
+				F39B37486FC23C7305E58BE9 /* FileHistoryLoaderTests.swift in Sources */,
 				D3D30CF1FBCFDCBB4C317448 /* FrontmatterParserTests.swift in Sources */,
 				E16FA394A4E0CC8918755A53 /* HighlightedTextTests.swift in Sources */,
 				7C54A70573D084E9568B9505 /* HistoryEntryTests.swift in Sources */,
