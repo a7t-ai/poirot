@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/hero.png" alt="Poirot — Investigating your Claude Code sessions" width="720" />
-</p>
-
 <h1 align="center">POIROT</h1>
 
 <p align="center">
