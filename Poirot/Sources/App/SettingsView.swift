@@ -113,6 +113,8 @@ private struct MemorySettingsView: View {
 private struct GeneralSettingsView: View {
     @Environment(\.provider)
     private var provider
+    @Environment(AppState.self)
+    private var appState
     @AppStorage("textEditor")
     private var textEditor = PreferredEditor.vscode.rawValue
     @AppStorage("preferredTerminal")
@@ -123,6 +125,9 @@ private struct GeneralSettingsView: View {
     private var claudeCodePath = "/usr/local/bin/claude"
 
     var body: some View {
+        @Bindable
+        var appState = appState
+
         VStack(spacing: 0) {
             settingsRow {
                 Text("Default Editor:")
@@ -179,6 +184,29 @@ private struct GeneralSettingsView: View {
                     }
                     .help("Browse for the CLI executable")
                 }
+            }
+
+            settingsRow {
+                Text("Load Projects:")
+            } control: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker("", selection: $appState.loadBatchSize) {
+                        ForEach(LoadBatchSize.allCases) { size in
+                            Text(size.label).tag(size)
+                        }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+
+                    Text(
+                        // swiftlint:disable:next line_length
+                        "Your most recently active projects load first, each with up to this many of its newest sessions. Scroll to the end of the session list for more projects. \u{2318}K only searches what has loaded."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: 340, alignment: .leading)
             }
             Spacer()
         }

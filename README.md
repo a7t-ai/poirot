@@ -59,6 +59,7 @@ Named after **Hercule Poirot**, Agatha Christie's legendary detective. Because e
 - **Session Analytics** — Token consumption, cost breakdowns, model distribution, and session trends
 - **Usage Limits** — Live subscription rate-limit gauges (5-hour and 7-day windows) with utilization and reset countdowns, in the dashboard and menu bar — no login, reusing the token Claude Code already stores
 - **Session History Browser** — Sessions grouped by project with timestamps, model info, and token counts
+- **Lazy Loading** — Most recently active projects load first, in batches of 10, 20, 40, 50, 100, or all (Settings > General), each with its newest sessions; scroll for more projects or show older sessions per project
 - **Rich Conversation View** — Full timeline with markdown rendering, syntax highlighting, and collapsible tool blocks
 - **Tool Block Display** — Every tool invocation rendered with name, icon, file path, and result
 - **Extended Thinking** — Collapsible thinking blocks with distinct purple accent
@@ -90,6 +91,7 @@ Named after **Hercule Poirot**, Agatha Christie's legendary detective. Because e
 | | Usage Limits | Subscription 5-hour / 7-day rate-limit gauges with reset countdowns; reads Claude Code's existing OAuth token (no login), shown in the dashboard and menu bar |
 | **Sessions** | JSONL Transcript Parser | Parses `~/.claude/projects/` transcripts into structured models |
 | | Session History Browser | Sessions grouped by project with timestamps, model, token counts |
+| | Lazy Loading | Loads the most recently active projects in batches of 10, 20, 40, 50, 100, or all (Settings > General), each starting with its newest sessions; reaching the end of the list loads the next batch, and Show older sessions loads more for one project. &#x2318;K searches what has loaded |
 | | Real-time File Watching | Auto-updates via GCD dispatch sources with 1s debounce |
 | | Per-Project Configuration | Supports global (`~/.claude/`) and per-project (`.claude/`) scopes |
 | | Session Detail View | Full conversation timeline with collapsible blocks and scroll-to-bottom |

@@ -678,6 +678,82 @@ struct TranscriptParserTests {
         #expect(text.contains("findme in content"))
         #expect(text.contains("here is the response"))
     }
+
+    // MARK: - Conversation Probe
+
+    /// What Claude Code leaves when a session closes before its first prompt; the last line
+    /// mentions "user" so the byte pre-check passes and the JSON check has to reject it.
+    private let noMessageTranscript = [
+        #"{"type":"permission-mode","permissionMode":"default"}"#,
+        #"{"type":"system","subtype":"init","content":"started"}"#,
+        #"{"type":"last-prompt","by":"user"}"#,
+    ].joined(separator: "\n")
+
+    /// The probe has to agree with parseSummary, which is what the session counts rely on.
+    private func probe(_ content: String, isSidechain: Bool = false) throws -> (found: Bool, parsed: Bool) {
+        let (dir, file) = try makeTempFile(content)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let found = parser.containsConversation(fileURL: file, isSidechain: isSidechain)
+        let parsed = parser.parseSummary(
+            fileURL: file, projectPath: "/test", sessionId: "s1", indexStartedAt: nil, isSidechain: isSidechain
+        ) != nil
+        return (found, parsed)
+    }
+
+    @Test
+    func containsConversation_sessionWithMessages_true() throws {
+        let content = [userRecord(content: "Hello"), assistantRecord(content: [["type": "text", "text": "Hi"]])]
+        let result = try probe(content.joined(separator: "\n"))
+        #expect(result.found)
+        #expect(result.parsed)
+    }
+
+    @Test
+    func containsConversation_noMessages_false() throws {
+        let result = try probe(noMessageTranscript)
+        #expect(!result.found)
+        #expect(!result.parsed)
+    }
+
+    @Test
+    func containsConversation_emptyFile_false() throws {
+        let result = try probe("")
+        #expect(!result.found)
+        #expect(!result.parsed)
+    }
+
+    @Test
+    func containsConversation_onlySyntheticAssistant_false() throws {
+        let synthetic = assistantRecord(
+            content: [["type": "text", "text": "No response requested."]],
+            model: "<synthetic>"
+        )
+        let result = try probe(synthetic)
+        #expect(!result.found)
+        #expect(!result.parsed)
+    }
+
+    @Test
+    func containsConversation_sidechainRecords_countOnlyInSidechainTranscripts() throws {
+        let sidechainOnly = userRecord(content: "Explore the repo", isSidechain: true)
+
+        let asMain = try probe(sidechainOnly)
+        #expect(!asMain.found)
+        #expect(!asMain.parsed)
+
+        let asSidechain = try probe(sidechainOnly, isSidechain: true)
+        #expect(asSidechain.found)
+        #expect(asSidechain.parsed)
+    }
+
+    @Test
+    func containsConversation_firstMessageAfterLineLongerThanOneRead_true() throws {
+        // A 40 KB snapshot line spans several 16 KB reads before the first message
+        let snapshot = #"{"type":"file-history-snapshot","blob":""# + String(repeating: "x", count: 40000) + #""}"#
+        let result = try probe([snapshot, userRecord(content: "Hello")].joined(separator: "\n"))
+        #expect(result.found)
+        #expect(result.parsed)
+    }
 }
 
 // swiftlint:enable file_length type_body_length

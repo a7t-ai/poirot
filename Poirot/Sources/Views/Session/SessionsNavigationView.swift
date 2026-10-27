@@ -30,12 +30,7 @@ struct SessionsNavigationView: View {
                     || HighlightedText.fuzzyMatch($0.id, query: trimmed) != nil
             }
             guard !matching.isEmpty else { return nil }
-            return Project(
-                id: project.id,
-                name: project.name,
-                path: project.path,
-                sessions: matching
-            )
+            return project.withSessions(matching)
         }
     }
 
@@ -75,7 +70,7 @@ struct SessionsNavigationView: View {
 
             if appState.isLoadingProjects {
                 loadingState
-            } else if filteredProjects.isEmpty {
+            } else if filteredProjects.isEmpty, !appState.hasMoreProjects {
                 emptySearchState
             } else {
                 ScrollViewReader { _ in
@@ -99,6 +94,10 @@ struct SessionsNavigationView: View {
                                 )
                                 .id(project.id)
                             }
+
+                            if appState.hasMoreProjects {
+                                LoadMoreProjectsFooter()
+                            }
                         }
                         .padding(.vertical, PoirotTheme.Spacing.xs)
                     }
@@ -116,8 +115,10 @@ struct SessionsNavigationView: View {
 
             Spacer()
 
+            // "+" when older projects or sessions are not loaded yet
             let total = filteredProjects.reduce(0) { $0 + $1.sessions.count }
-            Text("\(total)")
+            let isPartial = appState.hasMoreProjects || filteredProjects.contains { $0.unloadedSessionCount > 0 }
+            Text(isPartial ? "\(total)+" : "\(total)")
                 .font(PoirotTheme.Typography.tiny)
                 .foregroundStyle(PoirotTheme.Colors.textTertiary)
                 .padding(.horizontal, 6)
@@ -389,6 +390,10 @@ private struct SessionsProjectSection: View {
                         SessionsListRow(session: session, searchQuery: searchQuery)
                     }
                 }
+
+                if project.unloadedSessionCount > 0 {
+                    LoadMoreSessionsButton(project: project)
+                }
             }
         }
     }
@@ -424,7 +429,7 @@ private struct SessionsProjectSection: View {
 
                     Spacer()
 
-                    Text("\(project.sessions.count)")
+                    Text(project.unloadedSessionCount > 0 ? "\(project.sessions.count)+" : "\(project.sessions.count)")
                         .font(PoirotTheme.Typography.tiny)
                         .foregroundStyle(PoirotTheme.Colors.textTertiary)
                         .padding(.horizontal, 5)
@@ -440,6 +445,46 @@ private struct SessionsProjectSection: View {
         }
         .padding(.horizontal, PoirotTheme.Spacing.md)
         .padding(.vertical, PoirotTheme.Spacing.sm)
+    }
+}
+
+// MARK: - Load More Projects
+
+/// Sits at the end of the session list while older project folders are not loaded. Asks for the
+/// next batch whenever it is on screen and no load is running, so a short or filtered list keeps
+/// filling until it reaches past the bottom edge or every project has loaded.
+private struct LoadMoreProjectsFooter: View {
+    @Environment(AppState.self)
+    private var appState
+
+    @State
+    private var isVisible = false
+
+    var body: some View {
+        HStack(spacing: PoirotTheme.Spacing.sm) {
+            Spacer()
+            ProgressView()
+                .controlSize(.small)
+                .tint(PoirotTheme.Colors.textTertiary)
+            Text("Loading more projects\u{2026}")
+                .font(PoirotTheme.Typography.tiny)
+                .foregroundStyle(PoirotTheme.Colors.textTertiary)
+            Spacer()
+        }
+        .padding(.vertical, PoirotTheme.Spacing.md)
+        // Scroll visibility, not onAppear/onDisappear: LazyVStack keeps the footer alive after a new
+        // batch pushes it below the fold, so onDisappear never fires and every batch would load.
+        .onScrollVisibilityChange(threshold: 0.1) { visible in
+            isVisible = visible
+            if visible {
+                appState.loadMoreProjects()
+            }
+        }
+        .onChange(of: appState.isLoadingMoreProjects) { _, isLoading in
+            if !isLoading, isVisible {
+                appState.loadMoreProjects()
+            }
+        }
     }
 }
 

@@ -27,6 +27,15 @@ struct ProjectSessionsView: View {
 
     private static let screenID = "projectSessions"
 
+    /// "12 sessions", or "20+ sessions" while older ones are not loaded yet.
+    private var sessionCountLabel: String {
+        let count = project.sessions.count
+        if project.unloadedSessionCount > 0 {
+            return "\(count)+ sessions"
+        }
+        return "\(count) \(count == 1 ? "session" : "sessions")"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -72,7 +81,7 @@ struct ProjectSessionsView: View {
                         .font(PoirotTheme.Typography.heading)
                         .foregroundStyle(PoirotTheme.Colors.textPrimary)
 
-                    Text("\(project.sessions.count) \(project.sessions.count == 1 ? "session" : "sessions")")
+                    Text(sessionCountLabel)
                         .font(PoirotTheme.Typography.tiny)
                         .foregroundStyle(PoirotTheme.Colors.textTertiary)
                         .padding(.horizontal, PoirotTheme.Spacing.sm)
@@ -152,6 +161,17 @@ struct ProjectSessionsView: View {
             .padding(.horizontal, PoirotTheme.Spacing.xxl)
             .padding(.top, PoirotTheme.Spacing.lg)
             .padding(.bottom, PoirotTheme.Spacing.xxl)
+
+            loadMoreFooter
+        }
+    }
+
+    @ViewBuilder
+    private var loadMoreFooter: some View {
+        if project.unloadedSessionCount > 0 {
+            LoadMoreSessionsButton(project: project, style: .footer)
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, PoirotTheme.Spacing.xxl)
         }
     }
 
@@ -176,6 +196,8 @@ struct ProjectSessionsView: View {
             .padding(.horizontal, PoirotTheme.Spacing.xxl)
             .padding(.top, PoirotTheme.Spacing.lg)
             .padding(.bottom, PoirotTheme.Spacing.xxl)
+
+            loadMoreFooter
         }
     }
 }

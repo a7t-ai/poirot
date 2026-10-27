@@ -230,6 +230,52 @@ nonisolated struct TranscriptParser {
         )
     }
 
+    // MARK: - Conversation Probe (fast — stops at the first message)
+
+    /// Whether `parseSummary` would find a conversation in this transcript. Claude Code leaves
+    /// transcripts with no messages when a session closes before its first prompt. Reads only up
+    /// to the first user or assistant record, which sits in the first few lines of a real session.
+    func containsConversation(fileURL: URL, isSidechain: Bool = false) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return false }
+        defer { try? handle.close() }
+
+        var pending = Data()
+        while let chunk = try? handle.read(upToCount: 16384), !chunk.isEmpty {
+            pending.append(chunk)
+            var lineStart = pending.startIndex
+            while let newline = pending[lineStart...].firstIndex(of: UInt8(ascii: "\n")) {
+                if Self.isConversationRecord(pending[lineStart ..< newline], isSidechain: isSidechain) {
+                    return true
+                }
+                lineStart = pending.index(after: newline)
+            }
+            // Keep the unfinished last line for the next chunk
+            pending = Data(pending[lineStart...])
+        }
+        return Self.isConversationRecord(pending, isSidechain: isSidechain)
+    }
+
+    private static let quotedUser = Data(#""user""#.utf8)
+    private static let quotedAssistant = Data(#""assistant""#.utf8)
+
+    /// A record `parseSummary` counts: a user record, or an assistant record not written by Claude
+    /// Code itself (`<synthetic>`). Sidechain records only count in sidechain transcripts.
+    private static func isConversationRecord(_ line: Data, isSidechain: Bool) -> Bool {
+        // Byte search first, so snapshot and system lines skip JSON parsing
+        guard line.contains(quotedUser) || line.contains(quotedAssistant),
+              let record = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+              let type = record["type"] as? String,
+              type == "user" || type == "assistant"
+        else { return false }
+
+        if !isSidechain, record["isSidechain"] as? Bool == true { return false }
+        if type == "assistant" {
+            let message = record["message"] as? [String: Any]
+            if message?["model"] as? String == "<synthetic>" { return false }
+        }
+        return true
+    }
+
     // MARK: - Summary Parse
 
     func parseSummary(

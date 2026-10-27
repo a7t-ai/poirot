@@ -315,7 +315,7 @@ final class AppState {
                 let filtered = project.sessions.filter { !$0.isSidechain }
                 guard !filtered.isEmpty else { return nil }
                 if filtered.count == project.sessions.count { return project }
-                return Project(id: project.id, name: project.name, path: project.path, sessions: filtered)
+                return project.withSessions(filtered)
             }
         }
         let nonEmpty = visible.filter { !$0.sessions.isEmpty }
@@ -331,7 +331,7 @@ final class AppState {
                         || HighlightedText.fuzzyMatch($0.id, query: trimmed) != nil
                 }
                 if matchingSessions.isEmpty { return nil }
-                return Project(id: project.id, name: project.name, path: project.path, sessions: matchingSessions)
+                return project.withSessions(matchingSessions)
             }
         }
 
@@ -355,7 +355,9 @@ final class AppState {
                 $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
         case .sessionCount:
-            return searched.sorted { $0.sessions.count > $1.sessions.count }
+            return searched.sorted {
+                $0.sessions.count + $0.unloadedSessionCount > $1.sessions.count + $1.unloadedSessionCount
+            }
         }
     }
 
@@ -393,6 +395,99 @@ final class AppState {
 
         // Remove from state
         projects.removeAll { $0.id == project.id }
+        availableProjectCount = max(0, availableProjectCount - 1)
+        loadedSessionLimits[project.id] = nil
+        sessionLimits[project.id] = nil
+    }
+
+    // MARK: - Lazy Loading
+
+    /// How many project folders, and sessions per project, load at a time.
+    var loadBatchSize: LoadBatchSize = AppState.storedLoadBatchSize {
+        didSet {
+            UserDefaults.standard.set(loadBatchSize.rawValue, forKey: "loadBatchSize")
+            // Start over with one batch of the new size
+            projectLoadTarget = loadBatchSize.limit
+            sessionLimits = [:]
+        }
+    }
+
+    /// How many project folders, most recently active first, the session list holds. Grows by a
+    /// batch each time the list scrolls to its end.
+    private(set) var projectLoadTarget = AppState.storedLoadBatchSize.limit
+
+    /// Project folders found on disk by the last scan.
+    var availableProjectCount = 0
+
+    /// Session limits raised with "Show more", by project ID. Other projects use the batch size.
+    private(set) var sessionLimits: [String: Int] = [:]
+
+    /// The session limit each loaded project was parsed with, by project ID.
+    private var loadedSessionLimits: [String: Int] = [:]
+
+    var hasMoreProjects: Bool {
+        projectLoadTarget < availableProjectCount
+    }
+
+    func sessionLimit(for projectID: String) -> Int {
+        sessionLimits[projectID] ?? loadBatchSize.limit
+    }
+
+    /// True while a project's "Show more" request is waiting for its sessions to load.
+    func isLoadingSessions(for projectID: String) -> Bool {
+        guard let loaded = loadedSessionLimits[projectID] else { return false }
+        return loaded != sessionLimit(for: projectID)
+    }
+
+    /// Asks for the next batch of project folders. Ignored while a load is running, so a list end
+    /// that stays on screen asks again once the current batch lands.
+    func loadMoreProjects() {
+        guard hasMoreProjects, !isLoadingMoreProjects else { return }
+        projectLoadTarget = Self.adding(loadBatchSize.limit, to: projectLoadTarget)
+    }
+
+    /// Asks for the next batch of sessions in one project.
+    func loadMoreSessions(for projectID: String) {
+        sessionLimits[projectID] = Self.adding(loadBatchSize.limit, to: sessionLimit(for: projectID))
+    }
+
+    /// The folders a load pass parses, most recently active first. A refresh re-parses every
+    /// folder in the loaded window; otherwise only folders not loaded yet, or loaded with a
+    /// different session limit.
+    func projectDirectoriesToLoad(from directories: [URL], isRefresh: Bool) -> [URL] {
+        directories.prefix(projectLoadTarget).filter { url in
+            let id = url.lastPathComponent
+            return isRefresh || loadedSessionLimits[id] != sessionLimit(for: id)
+        }
+    }
+
+    /// Adds or replaces a project parsed by a load pass.
+    func storeLoadedProject(_ project: Project, sessionLimit: Int) {
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[index] = project
+        } else {
+            projects.append(project)
+        }
+        loadedSessionLimits[project.id] = sessionLimit
+    }
+
+    /// Drops projects whose folders were deleted or fell outside the loaded window.
+    func trimLoadedProjects(to directories: [URL]) {
+        let window = Set(directories.prefix(projectLoadTarget).map(\.lastPathComponent))
+        projects.removeAll { !window.contains($0.id) }
+        loadedSessionLimits = loadedSessionLimits.filter { window.contains($0.key) }
+    }
+
+    /// `count` plus `batch`, capped at `Int.max` (the limit for "All").
+    private static func adding(_ batch: Int, to count: Int) -> Int {
+        count > Int.max - batch ? .max : count + batch
+    }
+
+    private static var storedLoadBatchSize: LoadBatchSize {
+        guard let raw = UserDefaults.standard.object(forKey: "loadBatchSize") as? Int,
+              let size = LoadBatchSize(rawValue: raw)
+        else { return .default }
+        return size
     }
 
     // MARK: - Toast
@@ -455,11 +550,22 @@ final class AppState {
         sessionCache.removeValue(forKey: session.id)
 
         // Remove from projects
+        var emptiedProjectHasOlderSessions = false
         projects = projects.compactMap { project in
             let remaining = project.sessions.filter { $0.id != session.id }
-            if remaining.isEmpty { return nil }
+            if remaining.isEmpty {
+                if !project.sessions.isEmpty, project.unloadedSessionCount > 0 {
+                    emptiedProjectHasOlderSessions = true
+                }
+                return nil
+            }
             if remaining.count == project.sessions.count { return project }
-            return Project(id: project.id, name: project.name, path: project.path, sessions: remaining)
+            return project.withSessions(remaining)
+        }
+
+        // The deleted session was the last one loaded; reload so the older ones take its place
+        if emptiedProjectHasOlderSessions {
+            refreshID = UUID()
         }
     }
 }

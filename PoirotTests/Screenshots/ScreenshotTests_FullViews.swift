@@ -51,6 +51,35 @@ struct ScreenshotTests_FullViews {
         )
     }
 
+    // MARK: - Lazy Loading (older sessions and projects not loaded yet)
+
+    @Test
+    func testLazyLoading() async throws {
+        let savedBatchSize = UserDefaults.standard.object(forKey: "loadBatchSize")
+        defer { UserDefaults.standard.set(savedBatchSize, forKey: "loadBatchSize") }
+
+        // poirot keeps 37 older sessions on disk, and 35 more project folders wait past the batch
+        var projects = ScreenshotData.projects
+        projects[0].unloadedSessionCount = 37
+        let state = makeAppState(
+            projects: projects,
+            selectedSession: ScreenshotData.conversationSession,
+            selectedProject: projects.first?.id
+        )
+        state.loadBatchSize = .ten
+        state.availableProjectCount = 45
+
+        try await snapshotView(
+            compositeAppView(state: state) {
+                SessionsNavigationView()
+            },
+            size: ScreenshotSize.fullApp,
+            named: "testLazyLoading",
+            record: isRecording,
+            delay: 2
+        )
+    }
+
     // MARK: - Multi-Agent Sessions (Sidebar + Sessions with sub-agents grouped)
 
     @Test

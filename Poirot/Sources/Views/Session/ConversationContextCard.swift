@@ -126,7 +126,7 @@ struct ConversationContextCard: View {
 
 /// A normalized polyline of context size per turn. Heights are relative to `ceiling`
 /// (the window), so the line doubles as a fill indicator.
-struct ContextSparkline: Shape {
+nonisolated struct ContextSparkline: Shape {
     let values: [Int]
     let ceiling: Int
 
