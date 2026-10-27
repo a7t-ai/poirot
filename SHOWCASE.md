@@ -43,6 +43,15 @@ Sub-agent sessions are automatically grouped under their parent session. Expand 
 
 ---
 
+## Lazy Loading
+Parsing every transcript at launch gets slow once `~/.claude/projects` grows, so Poirot loads in batches. Your most recently active projects come first, in batches of 10, 20, 40, 50, or 100, and each project starts with that many of its newest sessions. Reach the end of the session list and the next batch loads; click Show older sessions inside a project for more of its history. Pick the batch size in Settings > General, or choose All at once to load everything at launch. &#x2318;K searches the sessions loaded so far.
+
+<p align="center">
+  <img src="assets/showcase/28-lazy-loading.png" alt="Lazy Loading" width="720" />
+</p>
+
+---
+
 ## Rich Conversation View
 Full conversation timeline with user messages, assistant responses, and collapsible tool blocks. Markdown rendering with syntax highlighting, because raw JSONL is not fun to read.
 

@@ -54,10 +54,41 @@ nonisolated struct SessionLoader: SessionLoading {
         }
     }
 
-    /// Builds a single project from a directory URL — does file I/O
-    nonisolated static func loadProject(at directoryURL: URL) -> Project? {
+    /// Project directory URLs, most recently active first. Activity is the newest modification
+    /// date among a folder's transcripts, or the folder's own when it has none. Reads file
+    /// metadata only, so it stays fast with thousands of sessions.
+    nonisolated static func projectDirectoriesByRecentActivity(at path: String) throws -> [URL] {
+        let fm = FileManager.default
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+
+        let dated = try projectDirectoryURLs(at: path).map { url -> (url: URL, date: Date) in
+            let files = (try? fm.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: Array(keys),
+                options: [.skipsHiddenFiles]
+            )) ?? []
+            let newestTranscript = files
+                .filter { $0.pathExtension == "jsonl" }
+                .compactMap { try? $0.resourceValues(forKeys: keys).contentModificationDate }
+                .max()
+            let folderDate = try? url.resourceValues(forKeys: keys).contentModificationDate
+            return (url, newestTranscript ?? folderDate ?? .distantPast)
+        }
+
+        return dated
+            .sorted { lhs, rhs in
+                lhs.date == rhs.date
+                    ? lhs.url.lastPathComponent < rhs.url.lastPathComponent
+                    : lhs.date > rhs.date
+            }
+            .map(\.url)
+    }
+
+    /// Builds a single project from a directory URL — does file I/O. Parses only the newest
+    /// `sessionLimit` sessions and counts the rest in `Project.unloadedSessionCount`.
+    nonisolated static func loadProject(at directoryURL: URL, sessionLimit: Int = .max) -> Project? {
         let loader = SessionLoader()
-        return loader.buildProject(at: directoryURL)
+        return loader.buildProject(at: directoryURL, sessionLimit: sessionLimit)
     }
 
     // MARK: - Private
@@ -81,9 +112,7 @@ nonisolated struct SessionLoader: SessionLoading {
 
     private let parser = TranscriptParser()
 
-    private static let maxSessionsPerProject = Int.max
-
-    private func buildProject(at directoryURL: URL) -> Project? {
+    private func buildProject(at directoryURL: URL, sessionLimit: Int = .max) -> Project? {
         let fm = FileManager.default
         let dirName = directoryURL.lastPathComponent
         let index = readSessionsIndex(at: directoryURL)
@@ -99,32 +128,46 @@ nonisolated struct SessionLoader: SessionLoading {
 
         // Index fast path: use index to identify sessions, parseSummary for metadata
         if let entries = index?.entries, !entries.isEmpty {
-            var sessions: [Session] = []
+            let transcriptURL = { (entry: SessionsIndex.Entry) in
+                directoryURL.appendingPathComponent("\(entry.sessionId).jsonl")
+            }
+            // Newest first; entries whose transcript is gone are dropped before counting
             let sortedEntries = entries
+                .filter { fm.fileExists(atPath: transcriptURL($0).path) }
                 .sorted {
                     (Self.dateFormatter.date(from: $0.created) ?? .distantPast)
                         > (Self.dateFormatter.date(from: $1.created) ?? .distantPast)
                 }
-                .prefix(Self.maxSessionsPerProject)
-
-            for entry in sortedEntries {
-                let fileURL = directoryURL.appendingPathComponent("\(entry.sessionId).jsonl")
-                guard fm.fileExists(atPath: fileURL.path) else { continue }
-                let indexStartedAt = Self.dateFormatter.date(from: entry.created)
-                if let session = parser.parseSummary(
-                    fileURL: fileURL,
+            let parseEntry = { (entry: SessionsIndex.Entry) in
+                parser.parseSummary(
+                    fileURL: transcriptURL(entry),
                     projectPath: projectPath,
                     sessionId: entry.sessionId,
-                    indexStartedAt: indexStartedAt,
+                    indexStartedAt: Self.dateFormatter.date(from: entry.created),
                     firstPrompt: entry.firstPrompt,
                     agentId: entry.agentId,
                     isSidechain: entry.isSidechain
-                ) {
-                    sessions.append(session)
-                }
+                )
             }
+            let main = parseNewest(
+                sortedEntries.filter { !$0.isSidechain },
+                limit: sessionLimit,
+                isSidechain: false,
+                fileURL: transcriptURL,
+                parse: parseEntry
+            )
+            let sidechains = parseNewest(
+                sortedEntries.filter(\.isSidechain),
+                limit: sessionLimit,
+                isSidechain: true,
+                fileURL: transcriptURL,
+                parse: parseEntry
+            )
+            let unloadedCount = main.unloadedCount + sidechains.unloadedCount
+
+            var sessions = main.sessions + sidechains.sessions
             // Scan subagent directories for each main session
-            let mainSessionIds = sessions.filter { !$0.isSidechain }.map(\.id)
+            let mainSessionIds = main.sessions.map(\.id)
             for parentId in mainSessionIds {
                 let agentSessions = loadSubAgentSessions(
                     parentSessionId: parentId,
@@ -135,7 +178,13 @@ nonisolated struct SessionLoader: SessionLoading {
             }
 
             sessions.sort { $0.startedAt > $1.startedAt }
-            return Project(id: dirName, name: projectName, path: projectPath, sessions: sessions)
+            return Project(
+                id: dirName,
+                name: projectName,
+                path: projectPath,
+                sessions: sessions,
+                unloadedSessionCount: unloadedCount
+            )
         }
 
         // Fallback path: no index — parseSummary the most recent JSONL files
@@ -161,42 +210,47 @@ nonisolated struct SessionLoader: SessionLoading {
         let mainFiles = allJsonl
             .filter { isUUIDFilename($0.deletingPathExtension().lastPathComponent) }
             .sorted(by: sortByDate)
-            .prefix(Self.maxSessionsPerProject)
 
         let agentFiles = allJsonl
             .filter { $0.deletingPathExtension().lastPathComponent.hasPrefix(Self.agentPrefix) }
             .sorted(by: sortByDate)
-            .prefix(Self.maxSessionsPerProject)
 
-        var sessions: [Session] = []
-        for item in mainFiles {
-            let stem = item.deletingPathExtension().lastPathComponent
-            if let session = parser.parseSummary(
-                fileURL: item,
-                projectPath: projectPath,
-                sessionId: stem,
-                indexStartedAt: nil
-            ) {
-                sessions.append(session)
+        let main = parseNewest(
+            mainFiles,
+            limit: sessionLimit,
+            isSidechain: false,
+            fileURL: { $0 },
+            parse: { item in
+                parser.parseSummary(
+                    fileURL: item,
+                    projectPath: projectPath,
+                    sessionId: item.deletingPathExtension().lastPathComponent,
+                    indexStartedAt: nil
+                )
             }
-        }
-        for item in agentFiles {
-            let stem = item.deletingPathExtension().lastPathComponent
-            let agentId = String(stem.dropFirst(Self.agentPrefix.count))
-            if let session = parser.parseSummary(
-                fileURL: item,
-                projectPath: projectPath,
-                sessionId: stem,
-                indexStartedAt: nil,
-                agentId: agentId,
-                isSidechain: true
-            ) {
-                sessions.append(session)
+        )
+        let agents = parseNewest(
+            agentFiles,
+            limit: sessionLimit,
+            isSidechain: true,
+            fileURL: { $0 },
+            parse: { item in
+                let stem = item.deletingPathExtension().lastPathComponent
+                return parser.parseSummary(
+                    fileURL: item,
+                    projectPath: projectPath,
+                    sessionId: stem,
+                    indexStartedAt: nil,
+                    agentId: String(stem.dropFirst(Self.agentPrefix.count)),
+                    isSidechain: true
+                )
             }
-        }
+        )
+
+        var sessions = main.sessions + agents.sessions
 
         // Scan subagent directories for each main session
-        let fallbackMainIds = mainFiles.map { $0.deletingPathExtension().lastPathComponent }
+        let fallbackMainIds = main.sessions.map(\.id)
         for parentId in fallbackMainIds {
             let agentSessions = loadSubAgentSessions(
                 parentSessionId: parentId,
@@ -208,7 +262,37 @@ nonisolated struct SessionLoader: SessionLoading {
 
         sessions.sort { $0.startedAt > $1.startedAt }
 
-        return Project(id: dirName, name: projectName, path: projectPath, sessions: sessions)
+        return Project(
+            id: dirName,
+            name: projectName,
+            path: projectPath,
+            sessions: sessions,
+            unloadedSessionCount: main.unloadedCount + agents.unloadedCount
+        )
+    }
+
+    /// Parses transcripts in order (newest first) until `limit` of them hold a conversation, so
+    /// transcripts without one don't use up the limit. `unloadedCount` is how many of the rest
+    /// hold a conversation, checked by reading each only up to its first message.
+    private func parseNewest<Transcript>(
+        _ transcripts: [Transcript],
+        limit: Int,
+        isSidechain: Bool,
+        fileURL: (Transcript) -> URL,
+        parse: (Transcript) -> Session?
+    ) -> (sessions: [Session], unloadedCount: Int) {
+        var sessions: [Session] = []
+        var next = transcripts.startIndex
+        while next < transcripts.endIndex, sessions.count < limit {
+            if let session = parse(transcripts[next]) {
+                sessions.append(session)
+            }
+            next += 1
+        }
+        let unloadedCount = transcripts[next...].count {
+            parser.containsConversation(fileURL: fileURL($0), isSidechain: isSidechain)
+        }
+        return (sessions, unloadedCount)
     }
 
     private func readSessionsIndex(at directoryURL: URL) -> SessionsIndex? {

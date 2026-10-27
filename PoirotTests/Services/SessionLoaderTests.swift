@@ -516,4 +516,242 @@ struct SessionLoaderTests {
         let session = projects[0].sessions[0]
         #expect(session.firstPrompt == nil)
     }
+
+    // MARK: - Recent Activity Order
+
+    private func setModificationDate(_ date: Date, of url: URL) throws {
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
+    }
+
+    private func sessionId(_ index: Int) -> String {
+        String(format: "00000000-0000-0000-0000-%012d", index)
+    }
+
+    @Test
+    func projectDirectoriesByRecentActivity_ordersByNewestTranscript() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        // Transcript ages in seconds; "newer" has an old transcript but also the most recent one
+        let now = Date()
+        let layout: [(folder: String, ages: [TimeInterval])] = [
+            ("older", [3000]),
+            ("newer", [5000, 100]),
+            ("middle", [2000]),
+        ]
+        for (folder, ages) in layout {
+            let projectDir = tmpDir.appendingPathComponent(folder)
+            try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+            for (index, age) in ages.enumerated() {
+                let file = projectDir.appendingPathComponent("\(sessionId(index)).jsonl")
+                try simpleJSONL().write(to: file, atomically: true, encoding: .utf8)
+                try setModificationDate(now.addingTimeInterval(-age), of: file)
+            }
+        }
+
+        let ordered = try SessionLoader.projectDirectoriesByRecentActivity(at: tmpDir.path)
+        #expect(ordered.map(\.lastPathComponent) == ["newer", "middle", "older"])
+    }
+
+    @Test
+    func projectDirectoriesByRecentActivity_folderWithoutTranscripts_usesFolderDate() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let now = Date()
+        let withTranscript = tmpDir.appendingPathComponent("with-transcript")
+        try FileManager.default.createDirectory(at: withTranscript, withIntermediateDirectories: true)
+        let file = withTranscript.appendingPathComponent("\(sessionId(1)).jsonl")
+        try simpleJSONL().write(to: file, atomically: true, encoding: .utf8)
+        try setModificationDate(now.addingTimeInterval(-1000), of: file)
+
+        let empty = tmpDir.appendingPathComponent("empty")
+        try FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+        try setModificationDate(now.addingTimeInterval(-10), of: empty)
+
+        let ordered = try SessionLoader.projectDirectoriesByRecentActivity(at: tmpDir.path)
+        #expect(ordered.map(\.lastPathComponent) == ["empty", "with-transcript"])
+    }
+
+    @Test
+    func projectDirectoriesByRecentActivity_nonExistentPath_returnsEmpty() throws {
+        let ordered = try SessionLoader.projectDirectoriesByRecentActivity(at: "/nonexistent/\(UUID().uuidString)")
+        #expect(ordered.isEmpty)
+    }
+
+    // MARK: - Session Limit
+
+    /// A project without an index holding `count` sessions. Session `i` started on day `i + 1`
+    /// and was last written `count - i` hours ago, so the highest index is the newest.
+    private func makeFallbackProject(in tmpDir: URL, sessionCount count: Int) throws -> URL {
+        let projectDir = tmpDir.appendingPathComponent("test-project")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+        let now = Date()
+        for index in 0 ..< count {
+            let file = projectDir.appendingPathComponent("\(sessionId(index)).jsonl")
+            let started = String(format: "2026-01-%02dT10:00:00.000Z", index + 1)
+            try simpleJSONL(userTimestamp: started).write(to: file, atomically: true, encoding: .utf8)
+            try setModificationDate(now.addingTimeInterval(Double(index - count) * 3600), of: file)
+        }
+        return projectDir
+    }
+
+    @Test
+    func loadProject_fallbackPath_keepsNewestSessionsUnderLimit() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let projectDir = try makeFallbackProject(in: tmpDir, sessionCount: 5)
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir, sessionLimit: 2))
+        #expect(project.sessions.map(\.id) == [sessionId(4), sessionId(3)])
+        #expect(project.unloadedSessionCount == 3)
+    }
+
+    /// Rewrites session `index` as a transcript with no messages (what a session closed before its
+    /// first prompt leaves), keeping its modification date.
+    private func replaceWithNoMessageTranscript(_ index: Int, in projectDir: URL) throws {
+        let file = projectDir.appendingPathComponent("\(sessionId(index)).jsonl")
+        let date = try FileManager.default.attributesOfItem(atPath: file.path)[.modificationDate] as? Date
+        try [
+            #"{"type":"permission-mode","permissionMode":"default"}"#,
+            #"{"type":"last-prompt","by":"user"}"#,
+        ].joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+        if let date { try setModificationDate(date, of: file) }
+    }
+
+    @Test
+    func loadProject_limitCountsConversationsNotTranscripts() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        // 12 transcripts, 11 conversations: the 5th newest (index 7) never got a prompt
+        let projectDir = try makeFallbackProject(in: tmpDir, sessionCount: 12)
+        try replaceWithNoMessageTranscript(7, in: projectDir)
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir, sessionLimit: 10))
+
+        #expect(project.sessions.count == 10)
+        #expect(!project.sessions.contains { $0.id == sessionId(7) })
+        #expect(project.sessions.last?.id == sessionId(1))
+        #expect(project.unloadedSessionCount == 1)
+    }
+
+    @Test
+    func loadProject_unloadedCountSkipsOlderTranscriptsWithoutConversation() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        // The oldest transcript (index 0) never got a prompt, so only one older conversation is left
+        let projectDir = try makeFallbackProject(in: tmpDir, sessionCount: 12)
+        try replaceWithNoMessageTranscript(0, in: projectDir)
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir, sessionLimit: 10))
+
+        #expect(project.sessions.count == 10)
+        #expect(project.unloadedSessionCount == 1)
+    }
+
+    @Test
+    func loadProject_withoutLimit_loadsEverySession() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let projectDir = try makeFallbackProject(in: tmpDir, sessionCount: 5)
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir))
+        #expect(project.sessions.count == 5)
+        #expect(project.unloadedSessionCount == 0)
+    }
+
+    @Test
+    func loadProject_limit_loadsSubagentsOnlyForLoadedSessions() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        let projectDir = try makeFallbackProject(in: tmpDir, sessionCount: 2)
+
+        // Each main session ran one subagent
+        for index in 0 ..< 2 {
+            let subagents = projectDir
+                .appendingPathComponent(sessionId(index))
+                .appendingPathComponent("subagents")
+            try FileManager.default.createDirectory(at: subagents, withIntermediateDirectories: true)
+            let agentFile = subagents.appendingPathComponent("agent-a\(index).jsonl")
+            try simpleJSONL().write(to: agentFile, atomically: true, encoding: .utf8)
+        }
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir, sessionLimit: 1))
+        #expect(project.sessions.filter { !$0.isSidechain }.map(\.id) == [sessionId(1)])
+        #expect(project.sessions.filter(\.isSidechain).compactMap(\.parentSessionId) == [sessionId(1)])
+        #expect(project.unloadedSessionCount == 1)
+    }
+
+    @Test
+    func loadProject_indexPath_keepsNewestEntriesUnderLimit() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let projectDir = tmpDir.appendingPathComponent("test-project")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+
+        var entries: [[String: Any]] = []
+        for index in 0 ..< 25 {
+            let created = String(format: "2026-01-%02dT10:00:00.000Z", index + 1)
+            entries.append([
+                "sessionId": sessionId(index),
+                "created": created,
+                "isSidechain": false,
+                "projectPath": "/test/project",
+            ])
+            let file = projectDir.appendingPathComponent("\(sessionId(index)).jsonl")
+            try simpleJSONL(userTimestamp: created).write(to: file, atomically: true, encoding: .utf8)
+        }
+        // The two newest entries point at transcripts that no longer exist
+        for index in 25 ..< 27 {
+            entries.append([
+                "sessionId": sessionId(index),
+                "created": String(format: "2026-02-%02dT10:00:00.000Z", index - 24),
+                "isSidechain": false,
+                "projectPath": "/test/project",
+            ])
+        }
+        let index: [String: Any] = ["version": 1, "entries": entries]
+        try JSONSerialization.data(withJSONObject: index)
+            .write(to: projectDir.appendingPathComponent("sessions-index.json"))
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir, sessionLimit: 10))
+        #expect(project.sessions.count == 10)
+        #expect(project.sessions.first?.id == sessionId(24))
+        #expect(project.sessions.last?.id == sessionId(15))
+        #expect(project.unloadedSessionCount == 15)
+    }
+
+    @Test
+    func loadProject_indexPath_limitCountsConversationsNotTranscripts() throws {
+        let tmpDir = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let projectDir = tmpDir.appendingPathComponent("test-project")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+
+        var entries: [[String: Any]] = []
+        for index in 0 ..< 12 {
+            let created = String(format: "2026-01-%02dT10:00:00.000Z", index + 1)
+            entries.append([
+                "sessionId": sessionId(index),
+                "created": created,
+                "isSidechain": false,
+                "projectPath": "/test/project",
+            ])
+            let file = projectDir.appendingPathComponent("\(sessionId(index)).jsonl")
+            try simpleJSONL(userTimestamp: created).write(to: file, atomically: true, encoding: .utf8)
+        }
+        // The 4th newest entry never got a prompt
+        try replaceWithNoMessageTranscript(8, in: projectDir)
+        let index: [String: Any] = ["version": 1, "entries": entries]
+        try JSONSerialization.data(withJSONObject: index)
+            .write(to: projectDir.appendingPathComponent("sessions-index.json"))
+
+        let project = try #require(SessionLoader.loadProject(at: projectDir, sessionLimit: 10))
+
+        #expect(project.sessions.count == 10)
+        #expect(project.sessions.last?.id == sessionId(1))
+        #expect(project.unloadedSessionCount == 1)
+    }
 }

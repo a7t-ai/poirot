@@ -18,6 +18,10 @@ struct ContentView: View {
     private var debugFileWatcher: FileWatcher?
     @State
     private var facetsWatcher: FileWatcher?
+    /// The `refreshID` of the last load pass that finished, so later passes know whether to
+    /// re-parse what is already loaded or only fetch what is missing.
+    @State
+    private var refreshedID: UUID?
     @AppStorage("hasCompletedOnboarding")
     private var hasCompletedOnboarding = false
     @AppStorage("colorTheme")
@@ -104,7 +108,7 @@ struct ContentView: View {
                 SearchOverlayView()
             }
         }
-        .task(id: appState.refreshID) {
+        .task(id: projectLoadTrigger) {
             await loadProjectsInBatches()
         }
         .onAppear {
@@ -270,7 +274,27 @@ struct ContentView: View {
 
     // MARK: - Batch Loading
 
+    /// What starts a load pass: a refresh (file change or the refresh button), a new batch size,
+    /// the session list asking for more projects, or a project asking for more sessions.
+    private struct ProjectLoadTrigger: Equatable {
+        let refreshID: UUID
+        let batchSize: LoadBatchSize
+        let projectTarget: Int
+        let sessionLimits: [String: Int]
+    }
+
+    private var projectLoadTrigger: ProjectLoadTrigger {
+        ProjectLoadTrigger(
+            refreshID: appState.refreshID,
+            batchSize: appState.loadBatchSize,
+            projectTarget: appState.projectLoadTarget,
+            sessionLimits: appState.sessionLimits
+        )
+    }
+
     private func loadProjectsInBatches() async {
+        let refreshID = appState.refreshID
+        let isRefresh = refreshID != refreshedID
         let isInitialLoad = appState.projects.isEmpty
         if isInitialLoad {
             appState.isLoadingProjects = true
@@ -278,65 +302,58 @@ struct ContentView: View {
         appState.isLoadingMoreProjects = true
 
         do {
-            // Phase 1: fast directory scan off main thread
+            // Phase 1: fast directory scan off main thread, most recently active first
             let directories = try await Task.detached {
-                try SessionLoader.projectDirectoryURLs(
+                try SessionLoader.projectDirectoriesByRecentActivity(
                     at: SessionLoader().claudeProjectsPath
                 )
             }.value
 
-            // Phase 2: build projects in batches, yielding to UI between each
-            let batchSize = 5
-            var loadedIds = Set(appState.projects.map(\.id))
+            guard !Task.isCancelled else { return }
+            appState.availableProjectCount = directories.count
 
-            for batchStart in stride(from: 0, to: directories.count, by: batchSize) {
+            // Phase 2: build the projects this pass needs in batches, yielding to UI between each
+            let pending = appState.projectDirectoriesToLoad(from: directories, isRefresh: isRefresh)
+            let batchSize = 5
+
+            for batchStart in stride(from: 0, to: pending.count, by: batchSize) {
                 guard !Task.isCancelled else { return }
 
-                let batchEnd = min(batchStart + batchSize, directories.count)
-                let batch = Array(directories[batchStart ..< batchEnd])
+                let batchEnd = min(batchStart + batchSize, pending.count)
+                let batch = pending[batchStart ..< batchEnd].map { url in
+                    (url: url, sessionLimit: appState.sessionLimit(for: url.lastPathComponent))
+                }
 
-                let projects = await Task.detached {
-                    batch.compactMap { SessionLoader.loadProject(at: $0) }
+                let loaded = await Task.detached {
+                    batch.compactMap { request in
+                        SessionLoader.loadProject(at: request.url, sessionLimit: request.sessionLimit)
+                            .map { (project: $0, sessionLimit: request.sessionLimit) }
+                    }
                 }.value
 
                 guard !Task.isCancelled else { return }
 
-                var newProjects: [Project] = []
-                var updatedProjects: [(index: Int, project: Project)] = []
-
-                for project in projects {
-                    if loadedIds.contains(project.id) {
-                        if let idx = appState.projects.firstIndex(where: { $0.id == project.id }) {
-                            updatedProjects.append((idx, project))
-                        }
-                    } else {
-                        newProjects.append(project)
-                        loadedIds.insert(project.id)
-                    }
-                }
-
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    for update in updatedProjects {
-                        appState.projects[update.index] = update.project
+                    for result in loaded {
+                        appState.storeLoadedProject(result.project, sessionLimit: result.sessionLimit)
                     }
-                    appState.projects.append(contentsOf: newProjects)
                     if isInitialLoad, appState.isLoadingProjects {
                         appState.isLoadingProjects = false
                     }
                 }
 
-                if batchEnd < directories.count {
+                if batchEnd < pending.count {
                     try? await Task.sleep(for: .milliseconds(50))
                 }
             }
 
             guard !Task.isCancelled else { return }
 
-            // Remove projects whose directories no longer exist
-            let directoryNames = Set(directories.map(\.lastPathComponent))
+            // Remove projects whose directories no longer exist or fell outside the loaded window
             withAnimation(.easeInOut(duration: 0.3)) {
-                appState.projects.removeAll { !directoryNames.contains($0.id) }
+                appState.trimLoadedProjects(to: directories)
             }
+            refreshedID = refreshID
         } catch {
             print("Failed to load projects: \(error)")
         }
